@@ -43,12 +43,16 @@ public class FileProviderX extends ContentProvider {
             if (name.contains("..") || name.contains("/") || name.contains("\\")) {
                 throw new FileNotFoundException("Некорректное имя файла");
             }
-            File f = new File(new File(c.getExternalFilesDir(null), dir), name);
-            if (f.exists()) return f;
-            // каталог прежней версии приложения (после обновления старые APK остаются там)
+            File ext = c.getExternalFilesDir(null);
+            if (ext != null) {
+                File f = new File(new File(ext, dir), name);
+                if (f.exists()) return f;
+            }
+            File internal = new File(new File(c.getFilesDir(), dir), name);
+            if (internal.exists()) return internal;
             File legacy = new File("/storage/emulated/0/Android/data/com.ghloader/files/apk", name);
             if (legacy.exists()) return legacy;
-            throw new FileNotFoundException(f.getAbsolutePath());
+            throw new FileNotFoundException(name);
         }
         // совместимость: content://authority/<имя> — ищем в apk/, затем в downloads/
         String name = segs.get(0);

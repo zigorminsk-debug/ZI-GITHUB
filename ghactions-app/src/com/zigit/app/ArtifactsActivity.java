@@ -177,15 +177,22 @@ public class ArtifactsActivity extends Activity {
                     adapter.notifyDataSetChanged();
                 }));
 
+                if (Util.looksLikeJson(tmp)) {
+                    throw new IOException("GitHub вернул JSON вместо архива. Проверьте токен.");
+                }
+                ui.post(() -> progressText.setText(a.name + ": извлекаю APK…"));
+                File apkBase = getExternalFilesDir(null);
+                if (apkBase == null) apkBase = getFilesDir();
+                File apkDir = new File(apkBase, FileProviderX.DIR_APK);
+                File apk = Util.extractFirstApk(tmp, apkDir);
                 ui.post(() -> progressText.setText(a.name + ": сохраняю в «Загрузки»…"));
-                // Артефакт Actions — всегда ZIP. Если внутри APK — в «Загрузки»
-                // кладём сразу .apk, а не архив.
-                File apk = Util.extractFirstApk(tmp, new File(getExternalFilesDir(null), FileProviderX.DIR_APK));
                 final Util.Saved saved;
                 if (apk != null) {
-                    saved = Util.save(this, apk, apk.getName(), Util.mimeFor(apk.getName()));
-                } else {
+                    saved = Util.save(this, apk, apk.getName(), "application/octet-stream");
+                } else if (Util.looksLikeZip(tmp)) {
                     saved = Util.save(this, tmp, Util.safeName(a.name) + ".zip", "application/zip");
+                } else {
+                    throw new IOException("Скачанный файл не архив и не APK (возможно, ошибка GitHub).");
                 }
                 final File apkFinal = apk;
                 ui.post(() -> {
@@ -226,23 +233,23 @@ public class ArtifactsActivity extends Activity {
     }
 
     private void resultDialog(Models.ArtifactInfo a, Util.Saved saved, final File apk) {
-        final File zip = saved.appFile;
+        final File file = saved.appFile;
         AlertDialog.Builder d = new AlertDialog.Builder(this)
                 .setTitle("Готово: " + a.name)
                 .setMessage("Сохранено: " + saved.publicPath
-                        + (apk != null ? "\n\nВнутри архива найден APK: " + apk.getName()
-                        + "\nЕго можно установить сразу — архив не нужно распаковывать вручную." : "")
+                        + (apk != null ? "\n\nЭто готовый APK — можно ставить сразу, распаковывать не нужно."
+                        : "\n\nAPK внутри архива не найден.")
                         + "\n\nВсе скачанные файлы: нижняя кнопка «Файлы».");
         if (apk != null) {
             d.setPositiveButton("Установить APK", (dd, w) -> installApk(apk));
-            d.setNeutralButton("Открыть архив", (dd, w) -> {
-                String err = Util.openFile(this, zip);
+            d.setNeutralButton("Открыть файл", (dd, w) -> {
+                String err = Util.openFile(this, file);
                 if (err != null) toast(err);
             });
             d.setNegativeButton("Закрыть", null);
         } else {
             d.setPositiveButton("Открыть файл", (dd, w) -> {
-                String err = Util.openFile(this, zip);
+                String err = Util.openFile(this, file);
                 if (err != null) toast(err);
             });
             d.setNegativeButton("Закрыть", null);
