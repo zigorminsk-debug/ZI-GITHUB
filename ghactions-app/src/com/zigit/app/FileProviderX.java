@@ -37,6 +37,12 @@ public class FileProviderX extends ContentProvider {
         if (segs.size() >= 2) {
             String dir = segs.get(0);
             String name = segs.get(segs.size() - 1);
+            if (!DIR_APK.equals(dir) && !DIR_DOWNLOADS.equals(dir)) {
+                throw new FileNotFoundException("Неизвестный каталог");
+            }
+            if (name.contains("..") || name.contains("/") || name.contains("\\")) {
+                throw new FileNotFoundException("Некорректное имя файла");
+            }
             File f = new File(new File(c.getExternalFilesDir(null), dir), name);
             if (f.exists()) return f;
             // каталог прежней версии приложения (после обновления старые APK остаются там)

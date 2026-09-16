@@ -1,0 +1,94 @@
+# Собирает подписанный APK без Gradle (aapt2 + javac + D8 + apksigner)
+# и публикует его как артефакт GitHub Actions — его видно в этом же приложении.
+#
+# Ручной запуск: Actions → Build APK → Run workflow.
+# Релиз с APK: поставьте тег vX.Y (например v2.2) или включите
+# «Опубликовать GitHub Release» в ручном запуске.
+
+name: Build APK
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Опубликовать GitHub Release с APK'
+        type: boolean
+        default: false
+
+concurrency:
+  group: build-apk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Собрать APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        run: |
+          chmod +x ./setup-android-sdk.sh ./build.sh
+          ./setup-android-sdk.sh
+
+      - name: Собрать и подписать APK
+        run: ./build.sh
+        env:
+          ZIGIT_KEYSTORE_PASS: ${{ secrets.ZIGIT_KEYSTORE_PASS }}
+          ZIGIT_KEY_PASS: ${{ secrets.ZIGIT_KEY_PASS }}
+          ZIGIT_KEY_ALIAS: ${{ secrets.ZIGIT_KEY_ALIAS }}
+          ZIGIT_KEYSTORE_BASE64: ${{ secrets.ZIGIT_KEYSTORE_BASE64 }}
+
+      - name: Загрузить APK как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZI-Git
+          path: ghactions-app/out/*.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Опубликовать GitHub Release
+        if: >-
+          startsWith(github.ref, 'refs/tags/v')
+          || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/.*android:versionName="\([^"]*\)".*/\1/p' ghactions-app/AndroidManifest.xml | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "Не удалось прочитать versionName из AndroidManifest.xml"
+            exit 1
+          fi
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="v${VERSION}"
+          fi
+          APK="ghactions-app/out/ZI-Git-v${VERSION}.apk"
+          if [ ! -f "$APK" ]; then
+            APK=$(ls ghactions-app/out/*.apk | head -1)
+          fi
+          NOTES="Автосборка ZI Git ${VERSION} (${GITHUB_SHA::7}).
+          Файл подписан постоянным ключом ZI Git — обновление ставится поверх."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+            echo "APK обновлён в релизе $TAG"
+          else
+            gh release create "$TAG" "$APK" \
+              --title "ZI Git ${VERSION}" \
+              --notes "$NOTES"
+            echo "Создан релиз $TAG"
+          fi

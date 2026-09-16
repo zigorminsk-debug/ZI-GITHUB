@@ -111,9 +111,15 @@ final class Util {
      * Открыть скачанный файл во внешнем приложении (просмотрщик, архиватор, установщик).
      * @return null при успехе, иначе текст ошибки
      */
+    static String fileProviderDir(File f) {
+        File p = f == null ? null : f.getParentFile();
+        if (p != null && FileProviderX.DIR_APK.equals(p.getName())) return FileProviderX.DIR_APK;
+        return FileProviderX.DIR_DOWNLOADS;
+    }
+
     static String openFile(android.app.Activity a, File f) {
         if (f == null || !f.exists()) return "Файл не найден";
-        Uri uri = FileProviderX.uriFor(a, FileProviderX.DIR_DOWNLOADS, f);
+        Uri uri = FileProviderX.uriFor(a, fileProviderDir(f), f);
         Intent i = new Intent(Intent.ACTION_VIEW);
         i.setDataAndType(uri, mimeFor(f.getName()));
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -139,7 +145,7 @@ final class Util {
     /** Поделиться скачанным файлом (мессенджеры, почта, облако). */
     static String shareFile(android.app.Activity a, File f) {
         if (f == null || !f.exists()) return "Файл не найден";
-        Uri uri = FileProviderX.uriFor(a, FileProviderX.DIR_DOWNLOADS, f);
+        Uri uri = FileProviderX.uriFor(a, fileProviderDir(f), f);
         Intent i = new Intent(Intent.ACTION_SEND);
         i.setType(mimeFor(f.getName()));
         i.putExtra(Intent.EXTRA_STREAM, uri);
@@ -280,7 +286,7 @@ final class Util {
 
     /** Открыть установщик APK (нужен content:// URI, поэтому через FileProviderX). */
     static void installApk(android.app.Activity a, File apk) {
-        Uri uri = FileProviderX.uriFor(a, FileProviderX.DIR_APK, apk);
+        Uri uri = FileProviderX.uriFor(a, fileProviderDir(apk), apk);
         Intent i = new Intent(Intent.ACTION_VIEW);
         i.setDataAndType(uri, "application/vnd.android.package-archive");
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);

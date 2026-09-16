@@ -149,6 +149,12 @@ public class MainActivity extends Activity {
         if (tabLabels != null) highlightTab(TAB_RUNS);
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        pool.shutdownNow();
+    }
+
     private void updateTokenBanner() {
         tokenBanner.setVisibility(Store.token(this).isEmpty() ? View.VISIBLE : View.GONE);
     }
@@ -162,10 +168,14 @@ public class MainActivity extends Activity {
         s = s.replace("https://", "").replace("http://", "");
         if (s.startsWith("github.com/")) s = s.substring("github.com/".length());
         if (s.startsWith("www.github.com/")) s = s.substring("www.github.com/".length());
+        int q = s.indexOf('?');
+        if (q >= 0) s = s.substring(0, q);
+        int h = s.indexOf('#');
+        if (h >= 0) s = s.substring(0, h);
         if (s.endsWith(".git")) s = s.substring(0, s.length() - 4);
         while (s.endsWith("/")) s = s.substring(0, s.length() - 1);
         String[] parts = s.split("/");
-        if (parts.length != 2 || parts[0].isEmpty() || parts[1].isEmpty()) return null;
+        if (parts.length < 2 || parts[0].isEmpty() || parts[1].isEmpty()) return null;
         return parts[0] + "/" + parts[1];
     }
 
@@ -404,8 +414,13 @@ public class MainActivity extends Activity {
     }
 
     private void showAbout() {
+        String ver = "2.2";
+        try {
+            ver = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception ignored) {
+        }
         new AlertDialog.Builder(this)
-                .setTitle("ZI Git 2.1")
+                .setTitle("ZI Git " + ver)
                 .setMessage("Загрузчик готовых сборок из GitHub Actions.\n\n"
                         + "Разработчик: Захаревич Игорь\n"
                         + "E-mail: ziv@csl.by\n\n"

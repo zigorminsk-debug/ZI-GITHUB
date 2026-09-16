@@ -45,7 +45,7 @@ final class Api {
         c.setReadTimeout(40000);
         c.setRequestProperty("Accept", accept);
         c.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-        c.setRequestProperty("User-Agent", "ActionsLoader/1.0");
+        c.setRequestProperty("User-Agent", "ZI-Git/2.2");
         if (token != null && !token.isEmpty()) {
             c.setRequestProperty("Authorization", "Bearer " + token);
         }
@@ -164,16 +164,34 @@ final class Api {
      *               иначе GitHub вернёт JSON-описание вместо самого файла
      */
     static void download(String url, String token, File out, String accept, Progress p) throws Exception {
-        HttpURLConnection c = open(url, token, accept);
-        c.setInstanceFollowRedirects(false);
-        int code = c.getResponseCode();
-        if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
+        HttpURLConnection c = null;
+        String current = url;
+        String authToken = token;
+        int code = 0;
+        for (int hop = 0; hop < 8; hop++) {
+            c = open(current, authToken, accept);
+            c.setInstanceFollowRedirects(false);
+            code = c.getResponseCode();
+            if (code != 301 && code != 302 && code != 303 && code != 307 && code != 308) break;
             String loc = c.getHeaderField("Location");
             c.disconnect();
-            if (loc == null) throw new IOException("Редирект без заголовка Location");
-            c = open(loc, null, accept);
-            code = c.getResponseCode();
+            if (loc == null || loc.isEmpty()) throw new IOException("Редирект без заголовка Location");
+            if (loc.startsWith("/")) {
+                URL base = new URL(current);
+                int port = base.getPort();
+                loc = base.getProtocol() + "://" + base.getHost()
+                        + (port != -1 ? ":" + port : "") + loc;
+            }
+            try {
+                String host = new URL(loc).getHost();
+                // токен только на api.github.com; на objects/release-assets.githubusercontent.com — нельзя
+                authToken = "api.github.com".equals(host) ? token : null;
+            } catch (Exception e) {
+                authToken = null;
+            }
+            current = loc;
         }
+        if (c == null) throw new IOException("Не удалось открыть соединение");
         if (code >= 400) {
             String body = readAll(c.getErrorStream());
             c.disconnect();
