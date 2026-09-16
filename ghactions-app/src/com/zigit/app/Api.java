@@ -45,7 +45,7 @@ final class Api {
         c.setReadTimeout(40000);
         c.setRequestProperty("Accept", accept);
         c.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-        c.setRequestProperty("User-Agent", "ZI-Git/2.3");
+        c.setRequestProperty("User-Agent", "ZI-Git/2.4");
         if (token != null && !token.isEmpty()) {
             c.setRequestProperty("Authorization", "Bearer " + token);
         }
@@ -156,7 +156,7 @@ final class Api {
      * токен отправлять нельзя, поэтому переход выполняется без Authorization.
      */
     static void download(String url, String token, File out, Progress p) throws Exception {
-        download(url, token, out, "application/vnd.github+json", p);
+        download(url, token, out, "application/vnd.github+json, application/json", p);
     }
 
     /**
@@ -167,9 +167,10 @@ final class Api {
         HttpURLConnection c = null;
         String current = url;
         String authToken = token;
+        String currentAccept = accept;
         int code = 0;
         for (int hop = 0; hop < 8; hop++) {
-            c = open(current, authToken, accept);
+            c = open(current, authToken, currentAccept);
             c.setInstanceFollowRedirects(false);
             c.setConnectTimeout(30000);
             c.setReadTimeout(300000);
@@ -187,10 +188,13 @@ final class Api {
             }
             try {
                 String host = new URL(loc).getHost();
-                // токен только на api.github.com; на objects/release-assets.githubusercontent.com — нельзя
-                authToken = "api.github.com".equals(host) ? token : null;
+                boolean api = "api.github.com".equals(host);
+                authToken = api ? token : null;
+                // CDN/blob не принимают github Accept — только */*
+                currentAccept = api ? accept : "*/*";
             } catch (Exception e) {
                 authToken = null;
+                currentAccept = "*/*";
             }
             current = loc;
         }

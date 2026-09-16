@@ -167,7 +167,7 @@ public class ArtifactsActivity extends Activity {
         pool.execute(() -> {
             final File tmp = new File(getCacheDir(), "art_" + a.id + ".zip");
             try {
-                Api.download(a.url, Store.token(this), tmp, "application/octet-stream", (done, total) -> ui.post(() -> {
+                Api.download(a.url, Store.token(this), tmp, (done, total) -> ui.post(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     int pct = total > 0 ? (int) (done * 100 / total) : 0;
                     String t = (total > 0 ? pct + "%  " : "") + Util.humanSize(done)
