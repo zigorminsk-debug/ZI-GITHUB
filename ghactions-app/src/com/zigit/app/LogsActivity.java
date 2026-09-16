@@ -5,9 +5,16 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.BackgroundColorSpan;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -239,10 +246,94 @@ public class LogsActivity extends Activity {
         if (log == null || log.isEmpty()) {
             logText.setText("(лог пуст)");
         } else {
-            logText.setText(log);
+            logText.setText(colorizeLog(log));
         }
 
         logScroll.post(() -> logScroll.fullScroll(View.FOCUS_DOWN));
+    }
+
+    /**
+     * Подсвечивает строки с ошибками красным, предупреждения — жёлтым,
+     * заголовки шагов — светло-зелёным. Обычные строки — серо-белые.
+     */
+    private SpannableStringBuilder colorizeLog(String log) {
+        SpannableStringBuilder sb = new SpannableStringBuilder();
+        String[] lines = log.split("\n", -1);
+
+        int red = 0xFFFF4444;        // яркий красный для ошибок
+        int redBg = 0x30FF0000;      // лёгкий красный фон для критических
+        int yellow = 0xFFFFB300;     // жёлтый для предупреждений
+        int green = 0xFF66BB6A;      // зелёный для успешных шагов
+        int cyan = 0xFF4FC3F7;       // голубой для заголовков секций
+        int dim = 0xFF8B949E;        // приглушённый для служебных строк
+
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            int start = sb.length();
+
+            // убираем таймстемп GitHub Actions в начале строки (2024-01-01T00:00:00.000Z )
+            String stripped = line;
+            if (stripped.length() > 28 && stripped.charAt(4) == '-' && stripped.charAt(10) == 'T') {
+                int spaceIdx = stripped.indexOf(' ', 20);
+                if (spaceIdx > 0 && spaceIdx < 35) {
+                    stripped = stripped.substring(spaceIdx + 1);
+                }
+            }
+
+            sb.append(line);
+            if (i < lines.length - 1) sb.append('\n');
+            int end = sb.length();
+
+            // === ОШИБКИ (красный + жирный) ===
+            boolean isError = false;
+            String low = stripped.toLowerCase();
+            if (low.contains("##[error]") || low.contains("error:") || low.contains("error ")
+                    || low.contains("fatal:") || low.contains("failed")
+                    || low.contains("exception") || low.contains("❌")
+                    || low.contains("failure:") || low.contains("✗")
+                    || low.matches("^e/.*") || low.contains("build failed")
+                    || low.contains("could not") || low.contains("unable to")
+                    || low.contains("unresolved") || low.contains("not found")
+                    || low.contains("no such file") || low.contains("permission denied")) {
+                isError = true;
+                sb.setSpan(new ForegroundColorSpan(red), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                sb.setSpan(new StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                // критические — с красным фоном
+                if (low.contains("##[error]") || low.contains("fatal:")
+                        || low.contains("build failed") || low.contains("failure:")) {
+                    sb.setSpan(new BackgroundColorSpan(redBg), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+            }
+
+            // === ПРЕДУПРЕЖДЕНИЯ (жёлтый) ===
+            if (!isError && (low.contains("##[warning]") || low.contains("warning:")
+                    || low.contains("warning ") || low.contains("⚠")
+                    || low.contains("deprecated") || low.contains("note:"))) {
+                sb.setSpan(new ForegroundColorSpan(yellow), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+
+            // === УСПЕШНЫЕ ШАГИ (зелёный) ===
+            if (!isError && (low.contains("✓") || low.contains("✔")
+                    || low.matches("^##\\[section\\].*") || low.contains("build successful")
+                    || low.contains("completed successfully"))) {
+                sb.setSpan(new ForegroundColorSpan(green), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+
+            // === ЗАГОЛОВКИ СЕКЦИЙ (голубой) ===
+            if (!isError && (stripped.startsWith("##[group]") || stripped.startsWith("##[section]")
+                    || stripped.startsWith("Run ") || stripped.startsWith("==>"))) {
+                sb.setSpan(new ForegroundColorSpan(cyan), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                sb.setSpan(new StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+
+            // === КОНЦЫ ГРУПП И ПУСТЫЕ СЛУЖЕБНЫЕ (приглушённый) ===
+            if (!isError && (stripped.equals("##[endgroup]") || stripped.startsWith("shell: ")
+                    || stripped.startsWith("env:"))) {
+                sb.setSpan(new ForegroundColorSpan(dim), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+
+        return sb;
     }
 
     // ---------------------------------------------------------- copy/share
