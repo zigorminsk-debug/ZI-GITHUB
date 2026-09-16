@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="@color/dark"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingEnd="14dp">
+
+        <TextView
+            android:id="@+id/backBtn"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="&#8249;"
+            android:textColor="#FFFFFF"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/title"
+            style="@style/HeaderTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:text="@string/downloads_title" />
+
+        <TextView
+            android:id="@+id/refreshBtn"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="&#8635;"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ListView
+            android:id="@+id/list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/white"
+            android:divider="@color/border"
+            android:dividerHeight="1dp" />
+
+        <TextView
+            android:id="@+id/empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:padding="32dp"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+    </FrameLayout>
+</LinearLayout>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.zigit.app"
+    android:versionCode="5"
+    android:versionName="2.1">
+
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ArtifactsActivity"
+            android:exported="false"
+            android:label="@string/artifacts_title" />
+
+        <activity
+            android:name=".RepoPickerActivity"
+            android:exported="false"
+            android:label="@string/my_repos" />
+
+        <activity
+            android:name=".DownloadsActivity"
+            android:exported="false"
+            android:label="@string/downloads_title" />
+
+        <activity
+            android:name=".ReleasesActivity"
+            android:exported="false"
+            android:label="@string/releases_title" />
+
+        <provider
+            android:name=".FileProviderX"
+            android:authorities="com.zigit.app.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+</manifest>

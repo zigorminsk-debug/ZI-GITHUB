@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="@color/dark"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingEnd="6dp">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:contentDescription="@null"
+            android:src="@drawable/brand_logo" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name"
+                android:textColor="#FFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/developerLine"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:text="@string/developer"
+                android:textColor="#8B949E"
+                android:textSize="10.5sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/menuBtn"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="&#8942;"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/repo_label"
+            android:textColor="@color/muted"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/repoInput"
+                style="@style/Input"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:hint="owner/repo"
+                android:imeOptions="actionSearch"
+                android:importantForAutofill="no"
+                android:inputType="textUri" />
+
+            <Button
+                android:id="@+id/findBtn"
+                style="@style/BtnPrimary"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:layout_marginStart="8dp"
+                android:text="@string/find" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/myReposBtn"
+                style="@style/BtnSecondary"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="@string/my_repos" />
+
+            <Button
+                android:id="@+id/releasesBtn"
+                style="@style/BtnSecondary"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/releases_btn" />
+
+            <Button
+                android:id="@+id/sourceBtn"
+                style="@style/BtnSecondary"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/download_source" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tokenBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_banner"
+            android:padding="10dp"
+            android:text="@string/token_banner"
+            android:textColor="@color/text"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/progressRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/progress"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="20dp"
+                android:layout_height="20dp" />
+
+            <TextView
+                android:id="@+id/status"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:text="@string/loading"
+                android:textColor="@color/muted"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/border" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ListView
+            android:id="@+id/list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/white"
+            android:divider="@color/border"
+            android:dividerHeight="1dp"
+            android:scrollbars="vertical" />
+
+        <TextView
+            android:id="@+id/empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:padding="32dp"
+            android:text="@string/empty_runs"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+    </FrameLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/border" />
+
+    <LinearLayout
+        android:id="@+id/bottomNav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:id="@+id/navRuns"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackground"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingTop="9dp"
+            android:paddingBottom="7dp">
+
+            <TextView
+                android:id="@+id/navRunsLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_runs"
+                android:textColor="@color/green"
+                android:textSize="12.5sp"
+                android:textStyle="bold" />
+
+            <View
+                android:id="@+id/navRunsLine"
+                android:layout_width="26dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="4dp"
+                android:background="@color/green" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navReleases"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackground"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingTop="9dp"
+            android:paddingBottom="7dp">
+
+            <TextView
+                android:id="@+id/navReleasesLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_releases"
+                android:textColor="@color/muted"
+                android:textSize="12.5sp" />
+
+            <View
+                android:id="@+id/navReleasesLine"
+                android:layout_width="26dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="4dp"
+                android:background="#00FFFFFF" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navRepos"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackground"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingTop="9dp"
+            android:paddingBottom="7dp">
+
+            <TextView
+                android:id="@+id/navReposLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_repos"
+                android:textColor="@color/muted"
+                android:textSize="12.5sp" />
+
+            <View
+                android:id="@+id/navReposLine"
+                android:layout_width="26dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="4dp"
+                android:background="#00FFFFFF" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navFiles"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackground"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingTop="9dp"
+            android:paddingBottom="7dp">
+
+            <TextView
+                android:id="@+id/navFilesLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_files"
+                android:textColor="@color/muted"
+                android:textSize="12.5sp" />
+
+            <View
+                android:id="@+id/navFilesLine"
+                android:layout_width="26dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="4dp"
+                android:background="#00FFFFFF" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

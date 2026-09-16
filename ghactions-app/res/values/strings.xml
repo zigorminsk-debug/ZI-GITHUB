@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZI Git</string>
+    <string name="artifacts_title">Артефакты</string>
+    <string name="repo_label">РЕПОЗИТОРИЙ (owner/repo)</string>
+    <string name="find">Найти</string>
+    <string name="my_repos">Мои репо</string>
+    <string name="download_source">Исходники</string>
+    <string name="releases_title">Релизы</string>
+    <string name="downloads_title">Скачанные файлы</string>
+    <string name="nav_runs">Запуски</string>
+    <string name="nav_releases">Релизы</string>
+    <string name="nav_repos">Мои репо</string>
+    <string name="nav_files">Файлы</string>
+    <string name="developer">Разработчик: Захаревич Игорь · ziv@csl.by</string>
+    <string name="releases_btn">Релизы</string>
+    <string name="token_banner">⚠ Для скачивания артефактов сборок нужен токен GitHub. Нажмите, чтобы ввести →</string>
+    <string name="empty_runs">Введите owner/repo и нажмите «Найти»,\nчтобы увидеть запуски GitHub Actions</string>
+    <string name="empty_artifacts">У этого запуска нет артефактов</string>
+    <string name="loading">Загрузка…</string>
+</resources>
