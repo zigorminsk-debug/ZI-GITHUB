@@ -2,11 +2,9 @@
 
 Android-приложение: находишь репозиторий → видишь запуски **GitHub Actions** → скачиваешь **готовые артефакты сборки** (APK, ZIP, бинарники) прямо в «Загрузки» и ставишь APK в один тап.
 
-**Файл для установки:** свежий APK собирается на GitHub Actions при каждом push
-(вкладка **Actions** → запуск **Build APK** → артефакт `ZI-Git`).
-Публичные релизы: **Releases** (после тега `vX.Y` или ручного запуска с галочкой «Опубликовать GitHub Release»).
-
-Локальная копия: `ghactions-app/out/ZIGit.apk` / `ZI-Git-v2.2.apk` (Android 8.0+).
+**Файл для установки:** при каждом push GitHub Actions сам собирает APK и кладёт
+готовый `.apk` (не ZIP) в **Releases** → файл `ZI-Git.apk`.
+Android 8.0+.
 
 **Разработчик:** Захаревич Игорь · ziv@csl.by (указан в шапке приложения — тап открывает письмо, и в разделе «О программе»)
 
@@ -16,7 +14,7 @@ Android-приложение: находишь репозиторий → вид
 
 ### Что нового в 2.2
 
-* **Сборка APK на GitHub Actions**: workflow `.github/workflows/build-apk.yml` при каждом push/PR собирает подписанный APK и кладёт его в артефакт `ZI-Git` (его можно скачать этим же приложением). Тег `vX.Y` или ручной запуск с «Опубликовать GitHub Release» публикует файл в Releases.
+* **Сборка APK на GitHub Actions** запускается сама на каждый push: готовый **`ZI-Git.apk`** сразу публикуется в **Releases** (это обычный APK, не ZIP). В «Загрузки» приложение тоже кладёт `.apk`, если он был внутри артефакта.
 * Исправлено **скачивание артефактов Actions**: использовался metadata-URL вместо `archive_download_url` (`…/artifacts/{id}/zip`) — GitHub отдавал JSON вместо ZIP.
 * Исправлена **поиск репозиториев**: GitHub Search API возвращает объект `{items: [...]}`, а не массив — поиск ничего не находил.
 * Ссылки вида `github.com/owner/repo/actions` теперь распознаются; скачивание ходит по цепочке редиректов; экран «Файлы» показывает и извлечённые APK.
@@ -160,11 +158,17 @@ GitHub отдаёт **метаданные** артефактов публичн
   * определение «артефакты требуют авторизации» — подтверждено живым запросом (401).
 * Алгоритм поиска APK внутри zip-архива артефакта: вложенные папки (`app/release/*.apk`) обрабатываются, архив без APK корректно возвращает «не найден».
 
-## Пересборка из исходников
+## Сборка APK на GitHub
+
+Workflow **Build APK** (`.github/workflows/build-apk.yml`) стартует **сам** на каждый push и после успеха кладёт **готовый `ZI-Git.apk`** в [Releases](https://github.com/zigorminsk-debug/ZI-GITHUB/releases) — это установочный файл, не архив.
+
+В приложении: этот репозиторий → вкладка **Релизы** → **Скачать APK**.
+
+## Пересборка из исходников (локально)
 
 ```bash
-./setup-android-sdk.sh   # окружение: JDK 21 + Android SDK 34 + R8 (один раз на сессию)
-./build.sh               # сборка и подпись -> ghactions-app/out/ZIGit.apk
+./setup-android-sdk.sh   # JDK + Android SDK 34 + R8 (один раз)
+./build.sh               # -> ghactions-app/out/ZIGit.apk и ZI-Git-v2.2.apk
 ```
 
 Скрипт делает всё без Gradle: `aapt2 compile` → `aapt2 link` → `javac` → `D8` (R8 из Google Maven, потому что встроенный в build-tools d8 падает с NPE на JDK 21) → упаковка → `zipalign` → `apksigner` **постоянным ключом** `keystore/zigit-release.jks`.

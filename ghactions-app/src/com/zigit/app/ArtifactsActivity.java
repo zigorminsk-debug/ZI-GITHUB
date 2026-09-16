@@ -178,12 +178,15 @@ public class ArtifactsActivity extends Activity {
                 }));
 
                 ui.post(() -> progressText.setText(a.name + ": сохраняю в «Загрузки»…"));
-                String display = Util.safeName(a.name) + ".zip";
-                final Util.Saved saved = Util.save(this, tmp, display, "application/zip");
-
-                // ищем APK внутри архива
+                // Артефакт Actions — всегда ZIP. Если внутри APK — в «Загрузки»
+                // кладём сразу .apk, а не архив.
                 File apk = Util.extractFirstApk(tmp, new File(getExternalFilesDir(null), FileProviderX.DIR_APK));
-
+                final Util.Saved saved;
+                if (apk != null) {
+                    saved = Util.save(this, apk, apk.getName(), Util.mimeFor(apk.getName()));
+                } else {
+                    saved = Util.save(this, tmp, Util.safeName(a.name) + ".zip", "application/zip");
+                }
                 final File apkFinal = apk;
                 ui.post(() -> {
                     if (isFinishing()) return;
