@@ -18,4 +18,8 @@
     <string name="empty_runs">Введите owner/repo и нажмите «Найти»,\nчтобы увидеть запуски GitHub Actions</string>
     <string name="empty_artifacts">У этого запуска нет артефактов</string>
     <string name="loading">Загрузка…</string>
+    <string name="logs_title">Логи сборки</string>
+    <string name="copy_all">Копировать</string>
+    <string name="empty_logs">Загружаю задания запуска…</string>
+    <string name="logs_copy_hint">Выделите текст long-press. Кнопка «Копировать» — весь лог в буфер</string>
 </resources>

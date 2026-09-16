@@ -150,6 +150,35 @@ final class Api {
         }
     }
 
+    /** Получить plain-text с поддержкой редиректов (302 на signed URL). */
+    static String getText(String url, String token) throws Exception {
+        HttpURLConnection c = null;
+        String current = url;
+        String authToken = token;
+        int code = 0;
+        for (int hop = 0; hop < 8; hop++) {
+            c = open(current, authToken, "application/vnd.github+json");
+            c.setInstanceFollowRedirects(false);
+            code = c.getResponseCode();
+            if (code != 301 && code != 302 && code != 303 && code != 307 && code != 308) break;
+            String loc = c.getHeaderField("Location");
+            c.disconnect();
+            if (loc == null || loc.isEmpty()) throw new IOException("Редирект без заголовка Location");
+            try {
+                String host = new URL(loc).getHost();
+                authToken = "api.github.com".equals(host) ? token : null;
+            } catch (Exception e) {
+                authToken = null;
+            }
+            current = loc;
+        }
+        if (c == null) throw new IOException("Не удалось открыть соединение");
+        String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
+        c.disconnect();
+        if (code >= 400) throw new ApiException(code, message(body, code));
+        return body;
+    }
+
     /**
      * Скачивание файла с поддержкой редиректа.
      * GitHub отдаёт 302 на подписанный URL (objects.githubusercontent.com) — туда

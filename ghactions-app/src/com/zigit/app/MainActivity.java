@@ -130,6 +130,12 @@ public class MainActivity extends Activity {
             startActivity(i);
         });
 
+        list.setOnItemLongClickListener((parent, view, position, id) -> {
+            Models.RunItem r = shown.get(position);
+            showRunMenu(view, r);
+            return true;
+        });
+
         setupBottomNav();
         updateTokenBanner();
 
@@ -400,6 +406,66 @@ public class MainActivity extends Activity {
                 case 5:
                     startActivity(new Intent(this, DownloadsActivity.class));
                     break;
+            }
+            return true;
+        });
+        m.show();
+    }
+
+    private void showRunMenu(View anchor, Models.RunItem r) {
+        PopupMenu m = new PopupMenu(this, anchor);
+        m.getMenu().add(0, 1, 0, "Артефакты");
+        m.getMenu().add(0, 2, 1, "Логи сборки (ошибки)");
+        m.getMenu().add(0, 3, 2, "Копировать: #" + r.runNumber);
+        m.getMenu().add(0, 4, 3, "Открыть на GitHub");
+        m.setOnMenuItemClickListener((MenuItem item) -> {
+            switch (item.getItemId()) {
+                case 1: {
+                    Intent i = new Intent(this, ArtifactsActivity.class);
+                    i.putExtra("repo", currentRepo);
+                    i.putExtra("runId", r.id);
+                    i.putExtra("title", r.title());
+                    i.putExtra("branch", r.headBranch);
+                    i.putExtra("number", r.runNumber);
+                    i.putExtra("created", r.createdAt);
+                    startActivity(i);
+                    break;
+                }
+                case 2: {
+                    Intent i = new Intent(this, LogsActivity.class);
+                    i.putExtra("repo", currentRepo);
+                    i.putExtra("runId", r.id);
+                    i.putExtra("title", r.title());
+                    i.putExtra("branch", r.headBranch);
+                    i.putExtra("number", r.runNumber);
+                    i.putExtra("conclusion", Models.statusLabel(r.status, r.conclusion));
+                    startActivity(i);
+                    break;
+                }
+                case 3: {
+                    try {
+                        android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                                getSystemService(Context.CLIPBOARD_SERVICE);
+                        String text = "#" + r.runNumber + "  " + r.title()
+                                + "  [" + Models.statusLabel(r.status, r.conclusion) + "]"
+                                + "  " + r.headBranch;
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("run", text));
+                        toast("Скопировано: #" + r.runNumber);
+                    } catch (Exception e) {
+                        toast("Не удалось скопировать");
+                    }
+                    break;
+                }
+                case 4: {
+                    try {
+                        String url = "https://github.com/" + currentRepo + "/actions/runs/" + r.id;
+                        startActivity(new Intent(Intent.ACTION_VIEW,
+                                android.net.Uri.parse(url)));
+                    } catch (Exception e) {
+                        toast("Не удалось открыть GitHub");
+                    }
+                    break;
+                }
             }
             return true;
         });

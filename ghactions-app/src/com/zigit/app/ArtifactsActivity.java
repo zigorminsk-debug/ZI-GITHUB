@@ -85,6 +85,7 @@ public class ArtifactsActivity extends Activity {
 
         findViewById(R.id.backBtn).setOnClickListener(v -> finish());
         findViewById(R.id.refreshBtn).setOnClickListener(v -> load());
+        findViewById(R.id.logsBtn).setOnClickListener(v -> openLogs());
 
         ListView list = findViewById(R.id.list);
         adapter = new ArtAdapter();
@@ -298,6 +299,18 @@ public class ArtifactsActivity extends Activity {
     private boolean hasStoragePermission() {
         return checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void openLogs() {
+        Intent i = new Intent(this, LogsActivity.class);
+        i.putExtra("repo", repo);
+        i.putExtra("runId", runId);
+        i.putExtra("title", runTitle);
+        String branch = getIntent().getStringExtra("branch");
+        if (branch != null) i.putExtra("branch", branch);
+        int number = getIntent().getIntExtra("number", 0);
+        i.putExtra("number", number);
+        startActivity(i);
     }
 
     private void toast(String s) {
