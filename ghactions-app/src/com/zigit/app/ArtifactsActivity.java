@@ -167,8 +167,8 @@ public class ArtifactsActivity extends Activity {
         pool.execute(() -> {
             final File tmp = new File(getCacheDir(), "art_" + a.id + ".zip");
             try {
-                Api.download(a.url, Store.token(this), tmp, (done, total) -> ui.post(() -> {
-                    if (isFinishing()) return;
+                Api.download(a.url, Store.token(this), tmp, "application/octet-stream", (done, total) -> ui.post(() -> {
+                    if (isFinishing() || isDestroyed()) return;
                     int pct = total > 0 ? (int) (done * 100 / total) : 0;
                     String t = (total > 0 ? pct + "%  " : "") + Util.humanSize(done)
                             + (total > 0 ? " / " + Util.humanSize(total) : "");
@@ -178,37 +178,41 @@ public class ArtifactsActivity extends Activity {
                     adapter.notifyDataSetChanged();
                 }));
 
-                if (Util.looksLikeJson(tmp)) {
-                    throw new IOException("GitHub вернул JSON вместо архива. Проверьте токен.");
-                }
-                ui.post(() -> progressText.setText(a.name + ": извлекаю APK…"));
+                ui.post(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        progressText.setText(a.name + ": извлекаю APK…");
+                    }
+                });
                 File apkBase = getExternalFilesDir(null);
                 if (apkBase == null) apkBase = getFilesDir();
                 File apkDir = new File(apkBase, FileProviderX.DIR_APK);
-                File apk = Util.extractFirstApk(tmp, apkDir);
-                ui.post(() -> progressText.setText(a.name + ": сохраняю в «Загрузки»…"));
-                final Util.Saved saved;
-                if (apk != null) {
-                    saved = Util.save(this, apk, apk.getName(), "application/octet-stream");
-                } else if (Util.looksLikeZip(tmp)) {
-                    saved = Util.save(this, tmp, Util.safeName(a.name) + ".zip", "application/zip");
-                } else {
-                    throw new IOException("Скачанный файл не архив и не APK (возможно, ошибка GitHub).");
-                }
+                File apk = ZipExtract.apkFrom(tmp, apkDir);
+                ui.post(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        progressText.setText(a.name + ": сохраняю…");
+                    }
+                });
+                final Util.Saved saved = Util.save(this, apk, apk.getName(), "application/octet-stream");
                 final File apkFinal = apk;
                 ui.post(() -> {
-                    if (isFinishing()) return;
+                    if (isFinishing() || isDestroyed()) return;
                     downloading = false;
                     a.uiState = null;
                     progressRow.setVisibility(View.GONE);
                     adapter.notifyDataSetChanged();
-                    resultDialog(a, saved, apkFinal);
+                    try {
+                        resultDialog(a, saved, apkFinal);
+                    } catch (Exception ignored) {
+                        toast("Сохранено: " + saved.publicPath);
+                    }
                 });
             } catch (Exception e) {
-                final String msg = e.getMessage();
+                String detail = e.getMessage();
+                if (detail == null || detail.isEmpty()) detail = e.getClass().getSimpleName();
+                final String msg = detail;
                 final int code = e instanceof Api.ApiException ? ((Api.ApiException) e).code : 0;
                 ui.post(() -> {
-                    if (isFinishing()) return;
+                    if (isFinishing() || isDestroyed()) return;
                     downloading = false;
                     a.uiState = null;
                     progressRow.setVisibility(View.GONE);
@@ -219,11 +223,15 @@ public class ArtifactsActivity extends Activity {
                                 "Артефакты доступны только с авторизацией.\n" + msg,
                                 () -> startDownload(a, pos));
                     } else {
-                        new AlertDialog.Builder(this)
-                                .setTitle("Не удалось скачать")
-                                .setMessage(msg + "\n\nЕсли артефакт старше 90 дней, GitHub удаляет его безвозвратно.")
-                                .setPositiveButton("ОК", null)
-                                .show();
+                        try {
+                            new AlertDialog.Builder(this)
+                                    .setTitle("Не удалось скачать / извлечь")
+                                    .setMessage(msg)
+                                    .setPositiveButton("ОК", null)
+                                    .show();
+                        } catch (Exception ignored) {
+                            toast(msg);
+                        }
                     }
                 });
             } finally {

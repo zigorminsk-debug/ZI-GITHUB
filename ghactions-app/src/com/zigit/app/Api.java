@@ -45,7 +45,7 @@ final class Api {
         c.setReadTimeout(40000);
         c.setRequestProperty("Accept", accept);
         c.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-        c.setRequestProperty("User-Agent", "ZI-Git/2.2");
+        c.setRequestProperty("User-Agent", "ZI-Git/2.3");
         if (token != null && !token.isEmpty()) {
             c.setRequestProperty("Authorization", "Bearer " + token);
         }
@@ -171,6 +171,9 @@ final class Api {
         for (int hop = 0; hop < 8; hop++) {
             c = open(current, authToken, accept);
             c.setInstanceFollowRedirects(false);
+            c.setConnectTimeout(30000);
+            c.setReadTimeout(300000);
+            c.setRequestProperty("Accept-Encoding", "identity");
             code = c.getResponseCode();
             if (code != 301 && code != 302 && code != 303 && code != 307 && code != 308) break;
             String loc = c.getHeaderField("Location");
@@ -205,7 +208,8 @@ final class Api {
             long done = 0;
             long last = 0;
             int n;
-            while ((n = in.read(buf)) > 0) {
+            while ((n = in.read(buf)) != -1) {
+                if (n == 0) continue;
                 fos.write(buf, 0, n);
                 done += n;
                 long now = System.currentTimeMillis();

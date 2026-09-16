@@ -99,9 +99,10 @@ final class Util {
 
     /** Каталог приложения со скачанными файлами (доступен установщику и другим приложениям через FileProvider). */
     static File appDownloadDir(Context c) {
-        File d = new File(c.getExternalFilesDir(null), FileProviderX.DIR_DOWNLOADS);
+        File base = c.getExternalFilesDir(null);
+        if (base == null) base = c.getFilesDir();
+        File d = new File(base, FileProviderX.DIR_DOWNLOADS);
         if (!d.exists() && !d.mkdirs()) {
-            // запасной вариант — внутренний каталог
             d = new File(c.getFilesDir(), FileProviderX.DIR_DOWNLOADS);
             if (!d.exists()) //noinspection ResultOfMethodCallIgnored
                 d.mkdirs();
