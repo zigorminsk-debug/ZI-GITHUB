@@ -83,6 +83,15 @@ public class DownloadsActivity extends Activity {
         }
     }
 
+    private void addFiles(List<File> out, File dir) {
+        if (dir == null) return;
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isFile()) out.add(f);
+        }
+    }
+
     private void open(File f) {
         if (f.getName().toLowerCase().endsWith(".apk")) {
             actionsDialog(f);
