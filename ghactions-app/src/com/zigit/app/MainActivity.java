@@ -116,6 +116,10 @@ public class MainActivity extends Activity {
             startActivity(i);
         });
 
+        findViewById(R.id.refreshBtn).setOnClickListener(v -> {
+            if (currentRepo != null) find();
+            else toast("Сначала укажите репозиторий");
+        });
         findViewById(R.id.menuBtn).setOnClickListener(v -> showMenu(v));
 
         list.setOnItemClickListener((parent, view, position, id) -> {
