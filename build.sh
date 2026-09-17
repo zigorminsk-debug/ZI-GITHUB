@@ -107,12 +107,9 @@ cp "$BUILD/app-res.apk" "$BUILD/app-unsigned.apk"
 "$BT/zipalign" -f 4 "$BUILD/app-unsigned.apk" "$BUILD/app-aligned.apk"
 
 echo "==> 6/6 Подпись (постоянный release-ключ ZI Git)"
-if [ -n "${ZIGIT_KEYSTORE_BASE64:-}" ]; then
-  KS="${RUNNER_TEMP:-/tmp}/zigit-ci.jks"
-  echo "$ZIGIT_KEYSTORE_BASE64" | base64 -d > "$KS"
-else
-  KS="${ZIGIT_KEYSTORE:-$ROOT/keystore/zigit-release.jks}"
-fi
+# ВСЕГДА используем keystore из репозитория — это гарантирует,
+# что подпись совпадает и обновления ставятся поверх.
+KS="${ZIGIT_KEYSTORE:-$ROOT/keystore/zigit-release.jks}"
 KS_PASS="${ZIGIT_KEYSTORE_PASS:-ZigitRelease2026!}"
 KEY_ALIAS="${ZIGIT_KEY_ALIAS:-zigit}"
 KEY_PASS="${ZIGIT_KEY_PASS:-$KS_PASS}"

@@ -41,7 +41,14 @@ jobs:
           ./setup-android-sdk.sh
 
       - name: Собрать и подписать APK
-        run: ./build.sh
+        run: |
+          ./build.sh
+          echo ""
+          echo "=== ОТПЕЧАТОК ПОДПИСИ СОБРАННОГО APK ==="
+          $ANDROID_HOME/build-tools/34.0.0/apksigner verify --print-certs ghactions-app/out/ZIGit.apk
+          echo ""
+          echo "=== ОЖИДАЕМЫЙ (из keystore/README.txt) ==="
+          grep -A1 "SHA-256 отпечаток" keystore/README.txt
         env:
           ZIGIT_KEYSTORE_PASS: ${{ secrets.ZIGIT_KEYSTORE_PASS }}
           ZIGIT_KEY_PASS: ${{ secrets.ZIGIT_KEY_PASS }}
