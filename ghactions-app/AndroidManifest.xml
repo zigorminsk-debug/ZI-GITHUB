@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.zigit.app"
-    android:versionCode="9"
-    android:versionName="2.5">
+    android:versionCode="10"
+    android:versionName="2.6">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -41,6 +41,11 @@
             android:name=".RepoPickerActivity"
             android:exported="false"
             android:label="@string/my_repos" />
+
+        <activity
+            android:name=".NewRepoActivity"
+            android:exported="false"
+            android:label="@string/new_repo_title" />
 
         <activity
             android:name=".DownloadsActivity"

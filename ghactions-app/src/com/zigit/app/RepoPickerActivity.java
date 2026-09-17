@@ -77,6 +77,7 @@ public class RepoPickerActivity extends Activity {
 
         findViewById(R.id.backBtn).setOnClickListener(v -> finish());
         findViewById(R.id.searchBtn).setOnClickListener(v -> searchDialog());
+        findViewById(R.id.addBtn).setOnClickListener(v -> createRepo());
 
         list.setOnItemClickListener((parent, view, position, id) -> {
             Intent data = new Intent();
@@ -230,6 +231,44 @@ public class RepoPickerActivity extends Activity {
             } catch (Exception ignored) {
             }
         });
+    }
+
+    private static final int REQ_NEW_REPO = 21;
+
+    /** Создание нового репозитория: без токена с правами на запись GitHub не даст этого сделать. */
+    private void createRepo() {
+        if (Store.token(this).isEmpty()) {
+            TokenDialog.askForToken(this,
+                    "Чтобы создавать репозитории, нужен токен с правами на запись:\n"
+                            + "classic — scope «repo»; fine-grained — Administration и Contents: "
+                            + "Read and write.",
+                    () -> {
+                        items.clear();
+                        adapter.notifyDataSetChanged();
+                        loadMyRepos();
+                    });
+            return;
+        }
+        startActivityForResult(new Intent(this, NewRepoActivity.class), REQ_NEW_REPO);
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req != REQ_NEW_REPO) return;
+        if (res == RESULT_OK && data != null) {
+            String repo = data.getStringExtra(NewRepoActivity.EXTRA_REPO);
+            if (repo != null) {
+                Intent out = new Intent();
+                out.putExtra("repo", repo);
+                setResult(RESULT_OK, out);
+                finish();
+                return;
+            }
+        }
+        items.clear();
+        adapter.notifyDataSetChanged();
+        loadMyRepos();
     }
 
     private void searchDialog() {
