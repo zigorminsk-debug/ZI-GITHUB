@@ -1,0 +1,51 @@
+# Сборка подписанного APK без Gradle: setup-android-sdk.sh + build.sh.
+#
+# Запуск: любой push / PR / кнопка «Run workflow».
+# Результат — артефакт Actions «ZI-Git.apk» (ghactions-app/out/ZIGit.apk).
+# Ключ подписи лежит в репозитории (keystore/zigit-release.jks),
+# пароль по умолчанию задан в build.sh — секреты не обязательны.
+# Но их можно переопределить: ZIGIT_KEYSTORE / ZIGIT_KEYSTORE_PASS /
+# ZIGIT_KEY_ALIAS / ZIGIT_KEY_PASS.
+
+name: Build ZI Git APK
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Собрать APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: JDK + Android SDK
+        run: |
+          set -euo pipefail
+          chmod +x ./setup-android-sdk.sh ./build.sh
+          ./setup-android-sdk.sh
+
+      - name: Собрать и подписать APK
+        run: ./build.sh
+
+      - name: Проверить подпись
+        run: /opt/android-sdk/build-tools/34.0.0/apksigner verify --print-certs ghactions-app/out/ZIGit.apk | head -3
+
+      - name: Загрузить APK как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZI-Git.apk
+          path: ghactions-app/out/ZIGit.apk
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0

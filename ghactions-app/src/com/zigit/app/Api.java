@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
@@ -84,13 +85,46 @@ final class Api {
         HttpURLConnection c = open(url, token);
         int code = c.getResponseCode();
         String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
+        Map<String, List<String>> h = headers(c);
+        c.disconnect();
+        if (code >= 400) throw new ApiException(code, message(body, code));
+        return new Response(code, body, h);
+    }
+
+    private static Map<String, List<String>> headers(HttpURLConnection c) {
         Map<String, List<String>> h = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         for (Map.Entry<String, List<String>> e : c.getHeaderFields().entrySet()) {
             if (e.getKey() != null) h.put(e.getKey(), e.getValue());
         }
+        return h;
+    }
+
+    /** POST с JSON-телом (создание репозитория, файлов и т.п.). */
+    static Response post(String url, String token, JSONObject body) throws Exception {
+        return send("POST", url, token, body);
+    }
+
+    /** POST/PUT/PATCH с JSON-телом. Возвращает код, тело и заголовки ответа. */
+    static Response send(String method, String url, String token, JSONObject body) throws Exception {
+        HttpURLConnection c = open(url, token);
+        c.setRequestMethod(method);
+        c.setDoOutput(true);
+        c.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        byte[] data = (body == null ? "" : body.toString()).getBytes("UTF-8");
+        c.setFixedLengthStreamingMode(data.length);
+        OutputStream os = c.getOutputStream();
+        try {
+            os.write(data);
+            os.flush();
+        } finally {
+            os.close();
+        }
+        int code = c.getResponseCode();
+        String resp = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
+        Map<String, List<String>> h = headers(c);
         c.disconnect();
-        if (code >= 400) throw new ApiException(code, message(body, code));
-        return new Response(code, body, h);
+        if (code >= 400) throw new ApiException(code, message(resp, code));
+        return new Response(code, resp, h);
     }
 
     /** Ссылка на следующую страницу из заголовка Link (или null). */
@@ -135,7 +169,28 @@ final class Api {
             return "GitHub отклонил запрос (401): " + (gh == null ? "нужна авторизация" : gh)
                     + ". Проверьте токен: меню ⋮ → «Токен GitHub».";
         }
-        if (gh != null) return gh;
+        if (gh != null) {
+            // 422 Validation Failed: в ответе есть массив errors с причиной по каждому полю
+            try {
+                JSONArray errs = new JSONObject(body == null ? "" : body).optJSONArray("errors");
+                if (errs != null && errs.length() > 0) {
+                    StringBuilder sb = new StringBuilder(gh);
+                    for (int i = 0; i < errs.length() && i < 3; i++) {
+                        JSONObject e = errs.optJSONObject(i);
+                        if (e == null) continue;
+                        String m = e.optString("message", "");
+                        if (m.isEmpty()) continue;
+                        String f = e.optString("field", "");
+                        sb.append("\n• ");
+                        if (!f.isEmpty() && !"null".equals(f)) sb.append(f).append(": ");
+                        sb.append(m);
+                    }
+                    return sb.toString();
+                }
+            } catch (Exception ignored) {
+            }
+            return gh;
+        }
         switch (code) {
             case 401:
                 return "Неверный или просроченный токен (401)";
@@ -145,6 +200,8 @@ final class Api {
                 return "Не найдено (404): проверьте owner/repo либо добавьте токен для приватных репозиториев";
             case 410:
                 return "Артефакт истёк и уже удалён GitHub (410)";
+            case 422:
+                return "GitHub не принял данные (422): проверьте имя и настройки репозитория";
             default:
                 return "HTTP " + code;
         }

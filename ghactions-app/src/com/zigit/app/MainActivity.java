@@ -42,6 +42,7 @@ public class MainActivity extends Activity {
 
     private static final int REQ_PICK_REPO = 100;
     private static final int REQ_STORAGE = 101;
+    private static final int REQ_NEW_REPO = 102;
 
     private final ExecutorService pool = Executors.newFixedThreadPool(3);
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -366,11 +367,12 @@ public class MainActivity extends Activity {
     private void showMenu(View anchor) {
         PopupMenu m = new PopupMenu(this, anchor);
         m.getMenu().add(0, 1, 0, "Обновить");
-        m.getMenu().add(0, 2, 1, onlyWithArtifacts
+        m.getMenu().add(0, 6, 1, "Создать репозиторий");
+        m.getMenu().add(0, 2, 2, onlyWithArtifacts
                 ? "Показать все запуски" : "Только запуски с артефактами");
-        m.getMenu().add(0, 5, 2, "Скачанные файлы");
-        m.getMenu().add(0, 3, 3, "Токен GitHub");
-        m.getMenu().add(0, 4, 4, "О приложении и разработчике");
+        m.getMenu().add(0, 5, 3, "Скачанные файлы");
+        m.getMenu().add(0, 3, 4, "Токен GitHub");
+        m.getMenu().add(0, 4, 5, "О приложении и разработчике");
         m.setOnMenuItemClickListener((MenuItem item) -> {
             switch (item.getItemId()) {
                 case 1:
@@ -389,6 +391,9 @@ public class MainActivity extends Activity {
                     break;
                 case 5:
                     startActivity(new Intent(this, DownloadsActivity.class));
+                    break;
+                case 6:
+                    startActivityForResult(new Intent(this, NewRepoActivity.class), REQ_NEW_REPO);
                     break;
             }
             return true;
@@ -538,6 +543,12 @@ public class MainActivity extends Activity {
         super.onActivityResult(req, res, data);
         if (req == REQ_PICK_REPO && res == RESULT_OK && data != null) {
             String repo = data.getStringExtra("repo");
+            if (repo != null) {
+                repoInput.setText(repo);
+                find();
+            }
+        } else if (req == REQ_NEW_REPO && res == RESULT_OK && data != null) {
+            String repo = data.getStringExtra(NewRepoActivity.EXTRA_REPO);
             if (repo != null) {
                 repoInput.setText(repo);
                 find();

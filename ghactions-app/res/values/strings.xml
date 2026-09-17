@@ -7,6 +7,8 @@
     <string name="my_repos">Мои репо</string>
     <string name="download_source">Исходники</string>
     <string name="releases_title">Релизы</string>
+    <string name="new_repo_title">Новый репозиторий</string>
+    <string name="new_repo_btn">Создать</string>
     <string name="downloads_title">Скачанные файлы</string>
     <string name="nav_runs">Запуски</string>
     <string name="nav_releases">Релизы</string>
