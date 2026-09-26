@@ -739,8 +739,9 @@ public class MainActivity extends Activity {
             final File tmp = new File(getCacheDir(), "update.apk");
             final File dest = new File(apkDir, "ZI-Git-update.apk");
             try {
-                Api.download(url, Store.token(this), tmp,
-                        "application/vnd.android.package-archive",
+                // browser_download_url — прямая ссылка, токен не нужен
+                Api.download(url, null, tmp,
+                        "application/octet-stream, */*",
                         (done, total) -> ui.post(() -> {
                             if (isFinishing()) return;
                             int pct = total > 0 ? (int) (done * 100 / total) : 0;
