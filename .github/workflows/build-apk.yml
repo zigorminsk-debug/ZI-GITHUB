@@ -1,0 +1,114 @@
+# Собирает подписанный APK без Gradle и кладёт его в GitHub Releases
+# как файл .apk (не ZIP). Артефакт Actions GitHub всегда зипует —
+# прямой APK можно скачать только из Releases.
+#
+# Запуск: любой push / PR / кнопка Run workflow.
+# После успешной сборки (не PR) релиз vX.Y обновляется файлами:
+#   ZI-Git.apk          — стабильное имя (удобно качать)
+#   ZI-Git-vX.Y.apk     — с номером версии
+
+name: Build APK
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-apk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Собрать APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        run: |
+          chmod +x ./setup-android-sdk.sh ./build.sh
+          ./setup-android-sdk.sh
+
+      - name: Собрать и подписать APK
+        run: |
+          ./build.sh
+          echo ""
+          echo "=== ОТПЕЧАТОК ПОДПИСИ СОБРАННОГО APK ==="
+          $ANDROID_HOME/build-tools/34.0.0/apksigner verify --print-certs ghactions-app/out/ZIGit.apk
+          echo ""
+          echo "=== ОЖИДАЕМЫЙ (из keystore/README.txt) ==="
+          grep -A1 "SHA-256 отпечаток" keystore/README.txt
+        env:
+          ZIGIT_KEYSTORE_PASS: ${{ secrets.ZIGIT_KEYSTORE_PASS }}
+          ZIGIT_KEY_PASS: ${{ secrets.ZIGIT_KEY_PASS }}
+          ZIGIT_KEY_ALIAS: ${{ secrets.ZIGIT_KEY_ALIAS }}
+          ZIGIT_KEYSTORE_BASE64: ${{ secrets.ZIGIT_KEYSTORE_BASE64 }}
+
+      - name: Имя файлов APK
+        id: apk
+        run: |
+          VERSION=$(sed -n 's/.*android:versionName="\([^"]*\)".*/\1/p' ghactions-app/AndroidManifest.xml | head -1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          cp -f ghactions-app/out/ZI-Git-v${VERSION}.apk ghactions-app/out/ZI-Git.apk
+          ls -la ghactions-app/out/*.apk
+
+      # GitHub всё равно обернёт это в ZIP — для приложения ZI Git / вкладки Actions.
+      - name: Загрузить как артефакт Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZI-Git.apk
+          path: ghactions-app/out/ZI-Git.apk
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      # Прямой .apk без обёртки — то, что качается из Releases / приложением с экрана «Релизы».
+      - name: Опубликовать APK в Releases
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.apk.outputs.version }}"
+          TAG="v${VERSION}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          APK="ghactions-app/out/ZI-Git-v${VERSION}.apk"
+          STABLE="ghactions-app/out/ZI-Git.apk"
+          if [ ! -f "$APK" ]; then
+            echo "Нет файла $APK"
+            exit 1
+          fi
+          NOTES="Автосборка ZI Git ${VERSION} (${GITHUB_SHA::7}).
+
+          Скачайте **ZI-Git.apk** — это готовый установочный файл, не архив.
+
+          Подпись постоянным ключом ZI Git: обновление ставится поверх."
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" "$STABLE" --clobber
+            gh release edit "$TAG" \
+              --title "ZI Git ${VERSION}" \
+              --notes "$NOTES" \
+              --latest
+            echo "APK обновлён в релизе $TAG"
+          else
+            gh release create "$TAG" "$APK" "$STABLE" \
+              --title "ZI Git ${VERSION}" \
+              --notes "$NOTES" \
+              --target "$GITHUB_SHA" \
+              --latest
+            echo "Создан релиз $TAG с APK"
+          fi

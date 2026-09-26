@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
@@ -45,7 +46,7 @@ final class Api {
         c.setReadTimeout(40000);
         c.setRequestProperty("Accept", accept);
         c.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-        c.setRequestProperty("User-Agent", "ActionsLoader/1.0");
+        c.setRequestProperty("User-Agent", "ZI-Git/2.4");
         if (token != null && !token.isEmpty()) {
             c.setRequestProperty("Authorization", "Bearer " + token);
         }
@@ -84,13 +85,46 @@ final class Api {
         HttpURLConnection c = open(url, token);
         int code = c.getResponseCode();
         String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
+        Map<String, List<String>> h = headers(c);
+        c.disconnect();
+        if (code >= 400) throw new ApiException(code, message(body, code));
+        return new Response(code, body, h);
+    }
+
+    private static Map<String, List<String>> headers(HttpURLConnection c) {
         Map<String, List<String>> h = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         for (Map.Entry<String, List<String>> e : c.getHeaderFields().entrySet()) {
             if (e.getKey() != null) h.put(e.getKey(), e.getValue());
         }
+        return h;
+    }
+
+    /** POST с JSON-телом (создание репозитория, файлов и т.п.). */
+    static Response post(String url, String token, JSONObject body) throws Exception {
+        return send("POST", url, token, body);
+    }
+
+    /** POST/PUT/PATCH с JSON-телом. */
+    static Response send(String method, String url, String token, JSONObject body) throws Exception {
+        HttpURLConnection c = open(url, token);
+        c.setRequestMethod(method);
+        c.setDoOutput(true);
+        c.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        byte[] data = (body == null ? "" : body.toString()).getBytes("UTF-8");
+        c.setFixedLengthStreamingMode(data.length);
+        OutputStream os = c.getOutputStream();
+        try {
+            os.write(data);
+            os.flush();
+        } finally {
+            os.close();
+        }
+        int code = c.getResponseCode();
+        String resp = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
+        Map<String, List<String>> h = headers(c);
         c.disconnect();
-        if (code >= 400) throw new ApiException(code, message(body, code));
-        return new Response(code, body, h);
+        if (code >= 400) throw new ApiException(code, message(resp, code));
+        return new Response(code, resp, h);
     }
 
     /** Ссылка на следующую страницу из заголовка Link (или null). */
@@ -135,7 +169,27 @@ final class Api {
             return "GitHub отклонил запрос (401): " + (gh == null ? "нужна авторизация" : gh)
                     + ". Проверьте токен: меню ⋮ → «Токен GitHub».";
         }
-        if (gh != null) return gh;
+        if (gh != null) {
+            try {
+                JSONArray errs = new JSONObject(body == null ? "" : body).optJSONArray("errors");
+                if (errs != null && errs.length() > 0) {
+                    StringBuilder sb = new StringBuilder(gh);
+                    for (int i = 0; i < errs.length() && i < 3; i++) {
+                        JSONObject e = errs.optJSONObject(i);
+                        if (e == null) continue;
+                        String m = e.optString("message", "");
+                        if (m.isEmpty()) continue;
+                        String f = e.optString("field", "");
+                        sb.append("\n• ");
+                        if (!f.isEmpty() && !"null".equals(f)) sb.append(f).append(": ");
+                        sb.append(m);
+                    }
+                    return sb.toString();
+                }
+            } catch (Exception ignored) {
+            }
+            return gh;
+        }
         switch (code) {
             case 401:
                 return "Неверный или просроченный токен (401)";
@@ -145,9 +199,40 @@ final class Api {
                 return "Не найдено (404): проверьте owner/repo либо добавьте токен для приватных репозиториев";
             case 410:
                 return "Артефакт истёк и уже удалён GitHub (410)";
+            case 422:
+                return "GitHub не принял данные (422): проверьте имя и настройки репозитория";
             default:
                 return "HTTP " + code;
         }
+    }
+
+    /** Получить plain-text с поддержкой редиректов (302 на signed URL). */
+    static String getText(String url, String token) throws Exception {
+        HttpURLConnection c = null;
+        String current = url;
+        String authToken = token;
+        int code = 0;
+        for (int hop = 0; hop < 8; hop++) {
+            c = open(current, authToken, "application/vnd.github+json");
+            c.setInstanceFollowRedirects(false);
+            code = c.getResponseCode();
+            if (code != 301 && code != 302 && code != 303 && code != 307 && code != 308) break;
+            String loc = c.getHeaderField("Location");
+            c.disconnect();
+            if (loc == null || loc.isEmpty()) throw new IOException("Редирект без заголовка Location");
+            try {
+                String host = new URL(loc).getHost();
+                authToken = "api.github.com".equals(host) ? token : null;
+            } catch (Exception e) {
+                authToken = null;
+            }
+            current = loc;
+        }
+        if (c == null) throw new IOException("Не удалось открыть соединение");
+        String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
+        c.disconnect();
+        if (code >= 400) throw new ApiException(code, message(body, code));
+        return body;
     }
 
     /**
@@ -156,7 +241,7 @@ final class Api {
      * токен отправлять нельзя, поэтому переход выполняется без Authorization.
      */
     static void download(String url, String token, File out, Progress p) throws Exception {
-        download(url, token, out, "application/vnd.github+json", p);
+        download(url, token, out, "application/vnd.github+json, application/json", p);
     }
 
     /**
@@ -164,16 +249,41 @@ final class Api {
      *               иначе GitHub вернёт JSON-описание вместо самого файла
      */
     static void download(String url, String token, File out, String accept, Progress p) throws Exception {
-        HttpURLConnection c = open(url, token, accept);
-        c.setInstanceFollowRedirects(false);
-        int code = c.getResponseCode();
-        if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
+        HttpURLConnection c = null;
+        String current = url;
+        String authToken = token;
+        String currentAccept = accept;
+        int code = 0;
+        for (int hop = 0; hop < 8; hop++) {
+            c = open(current, authToken, currentAccept);
+            c.setInstanceFollowRedirects(false);
+            c.setConnectTimeout(30000);
+            c.setReadTimeout(300000);
+            c.setRequestProperty("Accept-Encoding", "identity");
+            code = c.getResponseCode();
+            if (code != 301 && code != 302 && code != 303 && code != 307 && code != 308) break;
             String loc = c.getHeaderField("Location");
             c.disconnect();
-            if (loc == null) throw new IOException("Редирект без заголовка Location");
-            c = open(loc, null, accept);
-            code = c.getResponseCode();
+            if (loc == null || loc.isEmpty()) throw new IOException("Редирект без заголовка Location");
+            if (loc.startsWith("/")) {
+                URL base = new URL(current);
+                int port = base.getPort();
+                loc = base.getProtocol() + "://" + base.getHost()
+                        + (port != -1 ? ":" + port : "") + loc;
+            }
+            try {
+                String host = new URL(loc).getHost();
+                boolean api = "api.github.com".equals(host);
+                authToken = api ? token : null;
+                // CDN/blob не принимают github Accept — только */*
+                currentAccept = api ? accept : "*/*";
+            } catch (Exception e) {
+                authToken = null;
+                currentAccept = "*/*";
+            }
+            current = loc;
         }
+        if (c == null) throw new IOException("Не удалось открыть соединение");
         if (code >= 400) {
             String body = readAll(c.getErrorStream());
             c.disconnect();
@@ -187,7 +297,8 @@ final class Api {
             long done = 0;
             long last = 0;
             int n;
-            while ((n = in.read(buf)) > 0) {
+            while ((n = in.read(buf)) != -1) {
+                if (n == 0) continue;
                 fos.write(buf, 0, n);
                 done += n;
                 long now = System.currentTimeMillis();

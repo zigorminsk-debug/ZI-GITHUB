@@ -77,6 +77,7 @@ public class RepoPickerActivity extends Activity {
 
         findViewById(R.id.backBtn).setOnClickListener(v -> finish());
         findViewById(R.id.searchBtn).setOnClickListener(v -> searchDialog());
+        findViewById(R.id.addBtn).setOnClickListener(v -> createRepo());
 
         list.setOnItemClickListener((parent, view, position, id) -> {
             Intent data = new Intent();
@@ -109,6 +110,8 @@ public class RepoPickerActivity extends Activity {
             return;
         }
         loading = true;
+        items.clear();
+        adapter.notifyDataSetChanged();
         empty.setText("Загружаю ваши репозитории…");
         empty.setVisibility(View.VISIBLE);
         setInfo(null);
@@ -230,6 +233,44 @@ public class RepoPickerActivity extends Activity {
         });
     }
 
+    private static final int REQ_NEW_REPO = 21;
+
+    /** Создание нового репозитория: без токена с правами на запись GitHub не даст этого сделать. */
+    private void createRepo() {
+        if (Store.token(this).isEmpty()) {
+            TokenDialog.askForToken(this,
+                    "Чтобы создавать репозитории, нужен токен с правами на запись:\n"
+                            + "classic — scope «repo»; fine-grained — Administration и Contents: "
+                            + "Read and write.",
+                    () -> {
+                        items.clear();
+                        adapter.notifyDataSetChanged();
+                        loadMyRepos();
+                    });
+            return;
+        }
+        startActivityForResult(new Intent(this, NewRepoActivity.class), REQ_NEW_REPO);
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req != REQ_NEW_REPO) return;
+        if (res == RESULT_OK && data != null) {
+            String repo = data.getStringExtra(NewRepoActivity.EXTRA_REPO);
+            if (repo != null) {
+                Intent out = new Intent();
+                out.putExtra("repo", repo);
+                setResult(RESULT_OK, out);
+                finish();
+                return;
+            }
+        }
+        items.clear();
+        adapter.notifyDataSetChanged();
+        loadMyRepos();
+    }
+
     private void searchDialog() {
         final EditText input = new EditText(this);
         input.setHint("например: PC-Tools или owner/repo");
@@ -248,29 +289,50 @@ public class RepoPickerActivity extends Activity {
     }
 
     private void search(final String rawQuery) {
-        // "owner/repo" -> ищем по имени репозитория
-        String query = rawQuery;
-        if (query.contains("/")) {
-            String tail = query.substring(query.lastIndexOf('/') + 1).trim();
-            if (!tail.isEmpty()) query = tail;
-        }
+        if (rawQuery == null) return;
+        final String query = rawQuery.trim();
         if (query.isEmpty()) return;
-        final String term = query;
         setInfo(null);
-        titleView.setText("Поиск: " + term);
+        titleView.setText("Поиск: " + query);
         empty.setText("Ищу…");
         empty.setVisibility(View.VISIBLE);
         items.clear();
         adapter.notifyDataSetChanged();
         pool.execute(() -> {
             try {
-                String q = android.net.Uri.encode(term);
-                JSONArray arr = Api.array(Api.API + "/search/repositories?q=" + q
-                        + "&sort=stars&order=desc&per_page=50", Store.token(this));
                 final List<Repo> got = new ArrayList<>();
-                for (int i = 0; i < arr.length(); i++) {
-                    JSONObject o = arr.optJSONObject(i);
-                    if (o != null) got.add(Repo.from(o));
+                String token = Store.token(this);
+                if (query.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")) {
+                    try {
+                        JSONObject one = Api.json(Api.API + "/repos/" + query, token);
+                        if (one.has("full_name")) got.add(Repo.from(one));
+                    } catch (Exception ignored) {
+                    }
+                }
+                String term = query;
+                if (term.contains("/")) {
+                    String tail = term.substring(term.lastIndexOf('/') + 1).trim();
+                    if (!tail.isEmpty()) term = tail;
+                }
+                // /search/repositories возвращает объект {items: [...]}, не массив
+                JSONObject res = Api.json(Api.API + "/search/repositories?q="
+                        + android.net.Uri.encode(term)
+                        + "&sort=stars&order=desc&per_page=50", token);
+                JSONArray arr = res.optJSONArray("items");
+                if (arr != null) {
+                    for (int i = 0; i < arr.length(); i++) {
+                        JSONObject o = arr.optJSONObject(i);
+                        if (o == null) continue;
+                        Repo r = Repo.from(o);
+                        boolean dup = false;
+                        for (Repo x : got) {
+                            if (x.fullName.equals(r.fullName)) {
+                                dup = true;
+                                break;
+                            }
+                        }
+                        if (!dup) got.add(r);
+                    }
                 }
                 ui.post(() -> {
                     if (isFinishing()) return;
@@ -278,7 +340,12 @@ public class RepoPickerActivity extends Activity {
                     items.addAll(got);
                     adapter.notifyDataSetChanged();
                     empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
-                    titleView.setText(items.isEmpty() ? "Ничего не найдено" : "Найдено: " + items.size());
+                    if (items.isEmpty()) {
+                        empty.setText("Ничего не найдено");
+                        titleView.setText("Ничего не найдено");
+                    } else {
+                        titleView.setText("Найдено: " + items.size());
+                    }
                 });
             } catch (Exception e) {
                 final String msg = e.getMessage();
