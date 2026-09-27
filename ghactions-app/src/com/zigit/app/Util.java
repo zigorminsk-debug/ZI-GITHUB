@@ -21,7 +21,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.Enumeration;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
 /** Разные утилиты: форматирование, сохранение в «Загрузки», распаковка APK. */
@@ -97,9 +99,10 @@ final class Util {
 
     /** Каталог приложения со скачанными файлами (доступен установщику и другим приложениям через FileProvider). */
     static File appDownloadDir(Context c) {
-        File d = new File(c.getExternalFilesDir(null), FileProviderX.DIR_DOWNLOADS);
+        File base = c.getExternalFilesDir(null);
+        if (base == null) base = c.getFilesDir();
+        File d = new File(base, FileProviderX.DIR_DOWNLOADS);
         if (!d.exists() && !d.mkdirs()) {
-            // запасной вариант — внутренний каталог
             d = new File(c.getFilesDir(), FileProviderX.DIR_DOWNLOADS);
             if (!d.exists()) //noinspection ResultOfMethodCallIgnored
                 d.mkdirs();
@@ -111,9 +114,15 @@ final class Util {
      * Открыть скачанный файл во внешнем приложении (просмотрщик, архиватор, установщик).
      * @return null при успехе, иначе текст ошибки
      */
+    static String fileProviderDir(File f) {
+        File p = f == null ? null : f.getParentFile();
+        if (p != null && FileProviderX.DIR_APK.equals(p.getName())) return FileProviderX.DIR_APK;
+        return FileProviderX.DIR_DOWNLOADS;
+    }
+
     static String openFile(android.app.Activity a, File f) {
         if (f == null || !f.exists()) return "Файл не найден";
-        Uri uri = FileProviderX.uriFor(a, FileProviderX.DIR_DOWNLOADS, f);
+        Uri uri = FileProviderX.uriFor(a, fileProviderDir(f), f);
         Intent i = new Intent(Intent.ACTION_VIEW);
         i.setDataAndType(uri, mimeFor(f.getName()));
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -139,7 +148,7 @@ final class Util {
     /** Поделиться скачанным файлом (мессенджеры, почта, облако). */
     static String shareFile(android.app.Activity a, File f) {
         if (f == null || !f.exists()) return "Файл не найден";
-        Uri uri = FileProviderX.uriFor(a, FileProviderX.DIR_DOWNLOADS, f);
+        Uri uri = FileProviderX.uriFor(a, fileProviderDir(f), f);
         Intent i = new Intent(Intent.ACTION_SEND);
         i.setType(mimeFor(f.getName()));
         i.putExtra(Intent.EXTRA_STREAM, uri);
@@ -175,11 +184,21 @@ final class Util {
     static Saved save(Context c, File src, String displayName, String mime) throws IOException {
         Saved res = new Saved();
         res.displayName = displayName;
-        res.publicPath = copyToDownloads(c, src, displayName, mime);
         File dir = appDownloadDir(c);
         File out = new File(dir, displayName);
         copyFile(src, out);
         res.appFile = out;
+        // MediaStore часто отклоняет MIME APK — пишем как octet-stream.
+        // Если «Загрузки» недоступны, файл всё равно остаётся в каталоге приложения.
+        String storeMime = mime;
+        if (displayName != null && displayName.toLowerCase(Locale.US).endsWith(".apk")) {
+            storeMime = "application/octet-stream";
+        }
+        try {
+            res.publicPath = copyToDownloads(c, src, displayName, storeMime);
+        } catch (Exception e) {
+            res.publicPath = out.getAbsolutePath();
+        }
         return res;
     }
 
@@ -200,16 +219,28 @@ final class Util {
         if (Build.VERSION.SDK_INT >= 29) {
             ContentValues v = new ContentValues();
             v.put(MediaStore.MediaColumns.DISPLAY_NAME, displayName);
-            v.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+            v.put(MediaStore.MediaColumns.MIME_TYPE, mime == null ? "application/octet-stream" : mime);
             v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+            v.put(MediaStore.MediaColumns.IS_PENDING, 1);
             Uri uri = c.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
             if (uri == null) throw new IOException("Не удалось создать файл в «Загрузках»");
-            OutputStream os = c.getContentResolver().openOutputStream(uri);
-            if (os == null) throw new IOException("Не удалось открыть поток записи");
             try {
-                copy(src, os);
-            } finally {
-                os.close();
+                OutputStream os = c.getContentResolver().openOutputStream(uri);
+                if (os == null) throw new IOException("Не удалось открыть поток записи");
+                try {
+                    copy(src, os);
+                } finally {
+                    os.close();
+                }
+                ContentValues done = new ContentValues();
+                done.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                c.getContentResolver().update(uri, done, null, null);
+            } catch (IOException e) {
+                try {
+                    c.getContentResolver().delete(uri, null, null);
+                } catch (Exception ignored) {
+                }
+                throw e;
             }
             return "Загрузки/" + displayName;
         } else {
@@ -242,31 +273,117 @@ final class Util {
         }
     }
 
+    static boolean looksLikeZip(File f) {
+        if (f == null || !f.exists() || f.length() < 4) return false;
+        try (java.io.FileInputStream in = new java.io.FileInputStream(f)) {
+            byte[] m = new byte[4];
+            if (in.read(m) < 2) return false;
+            return m[0] == 'P' && m[1] == 'K';
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    static boolean looksLikeJson(File f) {
+        if (f == null || !f.exists() || f.length() < 2) return false;
+        try (java.io.FileInputStream in = new java.io.FileInputStream(f)) {
+            int c;
+            do {
+                c = in.read();
+            } while (c == ' ' || c == '\n' || c == '\r' || c == '\t');
+            return c == '{' || c == '[';
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     /**
-     * Ищет внутри zip-архива первый .apk и извлекает его в outDir.
-     * Нужно потому, что артефакты Actions всегда отдаются zip-архивом.
-     *
-     * @return извлечённый файл или null, если APK внутри нет
+     * Достаёт APK из скачанного файла.
+     * Артефакт Actions — ZIP (ZipFile надёжнее ZipInputStream на архивах GitHub).
+     * Если скачали уже готовый APK — возвращаем копию.
      */
     static File extractFirstApk(File zip, File outDir) {
+        if (zip == null || !zip.exists() || outDir == null) return null;
         if (!outDir.exists() && !outDir.mkdirs()) return null;
+        if (!looksLikeZip(zip)) return null;
+
+        File found = extractApkWithZipFile(zip, outDir);
+        if (validApk(found)) return found;
+        found = extractApkWithStream(zip, outDir);
+        if (validApk(found)) return found;
+
+        if (zipHasManifest(zip)) {
+            String name = zip.getName();
+            if (name == null || !name.toLowerCase(Locale.US).endsWith(".apk")) name = "download.apk";
+            File out = new File(outDir, safeName(name));
+            try {
+                copyFile(zip, out);
+                if (validApk(out)) return out;
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static boolean validApk(File f) {
+        return f != null && f.isFile() && f.length() > 100 && looksLikeZip(f);
+    }
+
+    private static String entryBaseName(String name) {
+        String n = name == null ? "" : name.replace('\\', '/');
+        int i = n.lastIndexOf('/');
+        return i >= 0 ? n.substring(i + 1) : n;
+    }
+
+    private static File extractApkWithZipFile(File zip, File outDir) {
+        ZipFile zf = null;
+        try {
+            zf = new ZipFile(zip);
+            Enumeration<? extends ZipEntry> en = zf.entries();
+            while (en.hasMoreElements()) {
+                ZipEntry e = en.nextElement();
+                if (e.isDirectory()) continue;
+                String base = entryBaseName(e.getName());
+                if (!base.toLowerCase(Locale.US).endsWith(".apk")) continue;
+                File out = new File(outDir, safeName(base));
+                try (InputStream in = zf.getInputStream(e);
+                     FileOutputStream fos = new FileOutputStream(out)) {
+                    byte[] buf = new byte[65536];
+                    int n;
+                    while ((n = in.read(buf)) > 0) fos.write(buf, 0, n);
+                }
+                if (validApk(out)) return out;
+                //noinspection ResultOfMethodCallIgnored
+                out.delete();
+            }
+        } catch (Exception ignored) {
+        } finally {
+            try {
+                if (zf != null) zf.close();
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static File extractApkWithStream(File zip, File outDir) {
         ZipInputStream zis = null;
         try {
             zis = new ZipInputStream(new java.io.FileInputStream(zip));
             ZipEntry e;
             while ((e = zis.getNextEntry()) != null) {
-                String name = e.getName();
                 if (e.isDirectory()) continue;
-                if (name.toLowerCase(Locale.US).endsWith(".apk")) {
-                    String base = name.contains("/") ? name.substring(name.lastIndexOf('/') + 1) : name;
-                    File out = new File(outDir, safeName(base));
-                    try (FileOutputStream fos = new FileOutputStream(out)) {
-                        byte[] buf = new byte[65536];
-                        int n;
-                        while ((n = zis.read(buf)) > 0) fos.write(buf, 0, n);
-                    }
-                    return out;
+                String base = entryBaseName(e.getName());
+                if (!base.toLowerCase(Locale.US).endsWith(".apk")) continue;
+                File out = new File(outDir, safeName(base));
+                try (FileOutputStream fos = new FileOutputStream(out)) {
+                    byte[] buf = new byte[65536];
+                    int n;
+                    while ((n = zis.read(buf)) > 0) fos.write(buf, 0, n);
                 }
+                if (validApk(out)) return out;
+                //noinspection ResultOfMethodCallIgnored
+                out.delete();
             }
         } catch (Exception ignored) {
         } finally {
@@ -278,9 +395,28 @@ final class Util {
         return null;
     }
 
+    private static boolean zipHasManifest(File zip) {
+        ZipFile zf = null;
+        try {
+            zf = new ZipFile(zip);
+            Enumeration<? extends ZipEntry> en = zf.entries();
+            while (en.hasMoreElements()) {
+                String n = entryBaseName(en.nextElement().getName());
+                if ("AndroidManifest.xml".equalsIgnoreCase(n)) return true;
+            }
+        } catch (Exception ignored) {
+        } finally {
+            try {
+                if (zf != null) zf.close();
+            } catch (Exception ignored) {
+            }
+        }
+        return false;
+    }
+
     /** Открыть установщик APK (нужен content:// URI, поэтому через FileProviderX). */
     static void installApk(android.app.Activity a, File apk) {
-        Uri uri = FileProviderX.uriFor(a, FileProviderX.DIR_APK, apk);
+        Uri uri = FileProviderX.uriFor(a, fileProviderDir(apk), apk);
         Intent i = new Intent(Intent.ACTION_VIEW);
         i.setDataAndType(uri, "application/vnd.android.package-archive");
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);

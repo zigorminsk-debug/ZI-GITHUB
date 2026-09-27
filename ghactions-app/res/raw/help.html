@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    font-family: 'Roboto', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1F2328;
+    background: #FFFFFF;
+    margin: 0;
+    padding: 12px 16px 40px;
+  }
+  h1 { font-size: 22px; color: #0D1117; margin: 20px 0 8px; border-bottom: 2px solid #1F883D; padding-bottom: 6px; }
+  h2 { font-size: 18px; color: #0D1117; margin: 24px 0 8px; }
+  h3 { font-size: 15px; color: #1F883D; margin: 18px 0 6px; }
+  p { margin: 6px 0; }
+  ul, ol { padding-left: 20px; margin: 6px 0; }
+  li { margin: 4px 0; }
+  code { background: #F6F8FA; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+
+  /* Стилизованные кнопки */
+  .btn {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    margin: 1px 2px;
+    vertical-align: middle;
+  }
+  .btn-primary { background: #1F883D; color: #FFF; }
+  .btn-secondary { background: #F6F8FA; color: #1F2328; border: 1px solid #D1D9E0; }
+  .btn-icon {
+    display: inline-block;
+    width: 32px; height: 32px;
+    line-height: 32px;
+    text-align: center;
+    border-radius: 50%;
+    background: #0D1117;
+    color: #FFF;
+    font-size: 16px;
+    margin: 1px 3px;
+    vertical-align: middle;
+  }
+  .btn-menu {
+    display: inline-block;
+    background: #0D1117;
+    color: #FFF;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin: 2px;
+    vertical-align: middle;
+  }
+
+  /* Схема экрана */
+  .screen {
+    background: #F6F8FA;
+    border: 1px solid #D1D9E0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin: 12px 0;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .screen .hdr { color: #FFF; background: #0D1117; display: block; padding: 4px 8px; border-radius: 6px; margin: -10px -12px 8px; font-size: 13px; }
+  .screen .hl { color: #1F883D; font-weight: bold; }
+  .screen .dim { color: #8B949E; }
+
+  /* Карточка шага */
+  .step {
+    background: #F6F8FA;
+    border-left: 4px solid #1F883D;
+    padding: 10px 12px;
+    margin: 10px 0;
+    border-radius: 0 8px 8px 0;
+  }
+  .step-num {
+    display: inline-block;
+    width: 24px; height: 24px;
+    line-height: 24px;
+    text-align: center;
+    background: #1F883D;
+    color: #FFF;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: bold;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* Бейджи статуса */
+  .badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #FFF;
+    margin: 1px 2px;
+  }
+  .badge-success { background: #1F883D; }
+  .badge-failure { background: #CF222E; }
+  .badge-progress { background: #BF8700; }
+  .badge-gray { background: #6E7781; }
+
+  /* Предупреждение */
+  .warn {
+    background: #FFF8C5;
+    border: 1px solid #D4A72C;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 10px 0;
+  }
+  .info {
+    background: #DDF4FF;
+    border: 1px solid #54AEFF;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 10px 0;
+  }
+
+  /* Цвета логов */
+  .log-error { color: #CF222E; font-weight: bold; }
+  .log-warn { color: #BF8700; }
+  .log-ok { color: #1F883D; }
+  .log-info { color: #0969DA; }
+
+  table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13px; }
+  th, td { border: 1px solid #D1D9E0; padding: 6px 8px; text-align: left; }
+  th { background: #F6F8FA; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>📖 ZI Git — Полная инструкция</h1>
+<p>Загрузчик готовых сборок из GitHub Actions. Версия 2.6.</p>
+
+<!-- ======================== УСТАНОВКА ======================== -->
+<h1>📥 1. Установка</h1>
+
+<div class="step">
+  <span class="step-num">1</span> Скачайте <b>ZI-Git.apk</b> из релизов GitHub или через само приложение (вкладка «Релизы» → ZI-Git.apk).
+</div>
+<div class="step">
+  <span class="step-num">2</span> Откройте скачанный файл на телефоне.
+</div>
+<div class="step">
+  <span class="step-num">3</span> Разрешите установку из этого источника (Android спросит один раз).
+</div>
+<div class="step">
+  <span class="step-num">4</span> Если Play Protect предупреждает — нажмите «Установить всё равно» (это нормально для APK вне Google Play).
+</div>
+
+<p><b>Требования:</b> Android 8.0+ (API 26), интернет.</p>
+
+<!-- ======================== ПОДКЛЮЧЕНИЕ ======================== -->
+<h1>🔑 2. Подключение к GitHub</h1>
+
+<p>Для скачивания артефактов нужен <b>токен GitHub</b>. Без него работают: просмотр запусков, релизы публичных репозиториев и ZIP-исходники.</p>
+
+<h2>Как создать токен</h2>
+
+<h3>Вариант 1: Classic-токен (проще всего)</h3>
+<div class="step">
+  <span class="step-num">1</span> В приложении нажмите <span class="btn-icon">⋮</span> → <span class="btn-menu">Токен GitHub</span>
+</div>
+<div class="step">
+  <span class="step-num">2</span> Нажмите <span class="btn btn-primary">Создать classic токен (repo + workflow)</span> — откроется GitHub
+</div>
+<div class="step">
+  <span class="step-num">3</span> Галочки <code>repo</code> и <code>workflow</code> уже проставлены → <b>Generate token</b>
+</div>
+<div class="step">
+  <span class="step-num">4</span> Скопируйте токен (<code>ghp_…</code>) и вставьте в приложение
+</div>
+
+<h3>Вариант 2: Fine-grained токен</h3>
+<div class="step">
+  <span class="step-num">1</span> GitHub → Settings → Developer settings → Fine-grained tokens → Generate
+</div>
+<div class="step">
+  <span class="step-num">2</span> <b>Repository access</b> → «All repositories»
+</div>
+<div class="step">
+  <span class="step-num">3</span> <b>Repository permissions:</b><br>
+  &nbsp;&nbsp;• Metadata: <b>Read-only</b> (обязательно)<br>
+  &nbsp;&nbsp;• Actions: <b>Read-only</b><br>
+  &nbsp;&nbsp;• Contents: <b>Read-only</b><br>
+  &nbsp;&nbsp;• Administration: <b>Read and write</b> (для создания/редактирования репо)
+</div>
+<div class="step">
+  <span class="step-num">4</span> Save → скопируйте → вставьте в приложение
+</div>
+
+<div class="warn">
+  ⚠️ <b>Приватные репозитории</b> видны только токену с доступом к ним. Если список короткий — проверьте токен: <span class="btn-icon">⋮</span> → Токен GitHub → «Проверить, что видит токен».
+</div>
+
+<!-- ======================== ГЛАВНЫЙ ЭКРАН ======================== -->
+<h1>📱 3. Главный экран — «Запуски»</h1>
+
+<h2>Схема экрана</h2>
+<div class="screen"><span class="hdr"> ZI Git                                    <span class="hl">✏  +  ↻  ⋮</span></span>
+<span class="dim">РЕПОЗИТОРИЙ (owner/repo)</span>
+┌─────────────────────────┬──────────┐
+│ owner/repo              │<span class="hl"> Найти   </span>│
+└─────────────────────────┴──────────┘
+┌──────────┐┌──────────┐┌──────────┐
+│ Мои репо ││ Релизы   ││Исходники │
+└──────────┘└──────────┘└──────────┘
+
+<span class="hl">▼ Список запусков GitHub Actions ▼</span>
+
+┌────────────────────────────────────┐
+│ Build APK  <span class="badge badge-success">success</span>              │
+│ #42 · Build APK · main · abc1234   │
+│ Артефактов: 1 (12.4 МБ)  →         │
+├────────────────────────────────────┤
+│ Deploy     <span class="badge badge-failure">failure</span>               │
+│ #41 · Deploy · dev · def5678       │
+│ Артефактов нет                     │
+├────────────────────────────────────┤
+│ Test       <span class="badge badge-progress">⏳ in_progress</span>          │
+│ #43 · Test · feature · ghi9012     │
+│ ▶ Сборка идёт — нажмите            │
+└────────────────────────────────────┘
+
+<span class="dim">──── нижняя навигация ────</span>
+<span class="hl">Запуски</span>    Релизы    Мои репо   Файлы
+</div>
+
+<h2>Шапка (верхняя панель)</h2>
+<table>
+  <tr><th>Кнопка</th><th>Назначение</th></tr>
+  <tr><td><span class="btn-icon">✏</span></td><td><b>Редактировать</b> текущий репозиторий: имя, описание, видимость, темы</td></tr>
+  <tr><td><span class="btn-icon">+</span></td><td><b>Создать</b> новый репозиторий на GitHub</td></tr>
+  <tr><td><span class="btn-icon">↻</span></td><td><b>Обновить</b> список запусков</td></tr>
+  <tr><td><span class="btn-icon">⋮</span></td><td><b>Меню</b>: фильтр, токен, файлы, о приложении</td></tr>
+</table>
+
+<h2>Кнопки под полем ввода</h2>
+<table>
+  <tr><th>Кнопка</th><th>Назначение</th></tr>
+  <tr><td><span class="btn btn-secondary">Мои репо</span></td><td>Список ваших репозиториев + поиск по GitHub</td></tr>
+  <tr><td><span class="btn btn-secondary">Релизы</span></td><td>Файлы из GitHub Releases (без токена для публичных)</td></tr>
+  <tr><td><span class="btn btn-secondary">Исходники</span></td><td>Скачать ZIP-архив исходников репозитория</td></tr>
+</table>
+
+<h2>Список запусков</h2>
+<p>Каждый запуск показывает:</p>
+<ul>
+  <li><b>Название</b> запуска (заголовок workflow)</li>
+  <li><b>Бейдж статуса:</b>
+    <span class="badge badge-success">success</span>
+    <span class="badge badge-failure">failure</span>
+    <span class="badge badge-progress">⏳ in_progress</span>
+    <span class="badge badge-gray">queued</span>
+  </li>
+  <li><b>Детали:</b> номер (#42), workflow, ветка, коммит (7 символов), время</li>
+  <li><b>Артефакты:</b> количество и общий размер</li>
+</ul>
+
+<h3>Действия с запуском</h3>
+<table>
+  <tr><th>Жест</th><th>Результат</th></tr>
+  <tr><td><b>Тап</b> (завершённый)</td><td>Экран артефактов → скачивание</td></tr>
+  <tr><td><b>Тап</b> (in_progress)</td><td>Экран прогресса сборки (автообновление)</td></tr>
+  <tr><td><b>Удержание</b></td><td>Контекстное меню ↓</td></tr>
+</table>
+
+<h3>Контекстное меню (удержание)</h3>
+<table>
+  <tr><th>Пункт</th><th>Что делает</th></tr>
+  <tr><td>Артефакты</td><td>Открыть экран артефактов</td></tr>
+  <tr><td>Логи сборки (ошибки)</td><td>Просмотр логов с подсветкой ошибок</td></tr>
+  <tr><td>Копировать: #N</td><td>Скопировать номер и описание в буфер</td></tr>
+  <tr><td>Открыть на GitHub</td><td>Открыть запуск в браузере</td></tr>
+</table>
+
+<!-- ======================== МЕНЮ ======================== -->
+<h1>☰ 4. Меню (⋮)</h1>
+
+<p>Открывается нажатием <span class="btn-icon">⋮</span> в правом верхнем углу.</p>
+
+<table>
+  <tr><th>Пункт</th><th>Что делает</th></tr>
+  <tr><td><b>Обновить</b></td><td>Перезагрузить список запусков (то же, что <span class="btn-icon">↻</span>)</td></tr>
+  <tr><td><b>Только запуски с артефактами</b></td><td>Фильтр: скрыть запуски без артефактов. Повторное нажатие — выключить</td></tr>
+  <tr><td><b>Скачанные файлы</b></td><td>Все загруженные файлы (то же, что вкладка «Файлы»)</td></tr>
+  <tr><td><b>Токен GitHub</b></td><td>Ввод/очистка токена, диагностика, кнопки создания</td></tr>
+  <tr><td><b>О приложении</b></td><td>Версия, проверить обновления, написать разработчику</td></tr>
+</table>
+
+<!-- ======================== АРТЕФАКТЫ ======================== -->
+<h1>📦 5. Экран «Артефакты»</h1>
+
+<div class="screen"><span class="hdr"> ‹  Build APK                          <span class="hl">☰  ↻</span></span>
+<span class="dim">#42  ·  main  ·  20.09.2026  ·  owner/repo</span>
+
+┌────────────────────────────────────┐
+│ app-debug                          │
+│ 12.4 МБ  ·  20.09.2026             │
+│ скачиваний: 3                      │
+│                      <span class="hl">Скачать APK</span>  │
+├────────────────────────────────────┤
+│ test-results                       │
+│ 1.2 МБ  ·  20.09.2026              │
+│                           <span class="hl">Скачать</span>  │
+└────────────────────────────────────┘
+</div>
+
+<table>
+  <tr><th>Кнопка</th><th>Назначение</th></tr>
+  <tr><td><span class="btn-icon" style="font-size:22px">‹</span></td><td>Назад к списку запусков</td></tr>
+  <tr><td><span class="btn-icon">☰</span></td><td><b>Логи сборки</b> — просмотр ошибок и прогресса</td></tr>
+  <tr><td><span class="btn-icon">↻</span></td><td>Обновить список артефактов</td></tr>
+</table>
+
+<div class="step">
+  <span class="step-num">→</span> <b>Тап на артефакт</b> → скачивание с прогрессом<br>
+  &nbsp;&nbsp;&nbsp;• Если внутри APK → диалог <span class="btn btn-primary">Установить APK</span><br>
+  &nbsp;&nbsp;&nbsp;• Обычный файл → <span class="btn btn-secondary">Открыть файл</span><br>
+  &nbsp;&nbsp;&nbsp;• Файл сохраняется в «Загрузки» телефона
+</div>
+
+<!-- ======================== ЛОГИ ======================== -->
+<h1>📋 6. Логи сборки и прогресс</h1>
+
+<p>Открывается: <span class="btn-icon">☰</span> в артефактах, long-press на запуск → «Логи сборки», или тап на <span class="badge badge-progress">in_progress</span> запуск.</p>
+
+<h2>Список заданий (jobs)</h2>
+<div class="screen"><span class="hdr"> ‹  Build APK                            <span class="hl">↻</span></span>
+┌────────────────────────────────────┐
+│ build                              │
+│ 20.09.2026  ·  ubuntu-latest       │
+│ <span class="badge badge-progress">⏳ in_progress</span>                       │
+│ ████████░░░░░░░░ (50%)             │
+│ <span class="log-ok">✓ Set up job</span>                       │
+│ <span class="log-ok">✓ Checkout</span>                          │
+│ <span class="log-ok">✓ JDK 17</span>                            │
+│ <span class="log-ok">✓ Android SDK</span>                       │
+│ <span class="log-info">▶ Собрать и подписать APK</span>            │
+│ <span class="dim">○ Имя файлов APK</span>                    │
+│ <span class="dim">○ Загрузить APK</span>                     │
+└────────────────────────────────────┘
+</div>
+
+<h3>Иконки шагов</h3>
+<table>
+  <tr><th>Иконка</th><th>Значение</th></tr>
+  <tr><td><span class="log-ok">✓</span></td><td>Шаг завершён успешно</td></tr>
+  <tr><td><span class="log-error">✗</span></td><td>Ошибка (шаг провален)</td></tr>
+  <tr><td><span class="log-info">▶</span></td><td>Сейчас выполняется</td></tr>
+  <tr><td><span style="color:#8B949E">○</span></td><td>В очереди (ещё не начался)</td></tr>
+  <tr><td><span style="color:#8B949E">⊘</span></td><td>Пропущен</td></tr>
+</table>
+
+<div class="info">
+  💡 Для <b>in_progress</b> запусков список обновляется <b>автоматически каждые 5 секунд</b>. Когда сборка завершится — обновление остановится.
+</div>
+
+<h2>Просмотр полного лога</h2>
+<p>Тап на job → полный лог с <b>цветовой подсветкой</b>:</p>
+
+<table>
+  <tr><th>Цвет</th><th>Что выделяется</th></tr>
+  <tr><td><span class="log-error">Красный + жирный</span></td><td>Ошибки: <code>error:</code>, <code>failed</code>, <code>fatal:</code>, <code>exception</code>, <code>not found</code></td></tr>
+  <tr><td><span style="background:#30FF0000;padding:1px 4px"><span class="log-error">Красный фон</span></span></td><td>Критические: <code>##[error]</code>, <code>fatal:</code>, <code>build failed</code></td></tr>
+  <tr><td><span class="log-warn">Жёлтый</span></td><td>Предупреждения: <code>warning:</code>, <code>deprecated</code></td></tr>
+  <tr><td><span class="log-ok">Зелёный</span></td><td>Успех: <code>✓</code>, <code>build successful</code></td></tr>
+  <tr><td><span class="log-info">Голубой + жирный</span></td><td>Заголовки: <code>Run …</code>, <code>==></code></td></tr>
+</table>
+
+<h3>Копирование лога</h3>
+<table>
+  <tr><th>Кнопка</th><th>Что делает</th></tr>
+  <tr><td><span class="btn-menu">Копировать</span></td><td>Весь лог → буфер обмена</td></tr>
+  <tr><td>Long-press на текст</td><td>Выделить фрагмент → «Копировать»</td></tr>
+  <tr><td><span class="btn-icon">↗</span></td><td>Поделиться логом через любое приложение</td></tr>
+</table>
+
+<!-- ======================== РЕЛИЗЫ ======================== -->
+<h1>🏷 7. Экран «Релизы»</h1>
+
+<p>Файлы из GitHub Releases. Публичные релизы качаются <b>без токена</b>.</p>
+
+<table>
+  <tr><th>Кнопка</th><th>Назначение</th></tr>
+  <tr><td><span class="btn-icon" style="font-size:22px">‹</span></td><td>Назад</td></tr>
+  <tr><td><span class="btn-icon">⟳</span></td><td>Фильтр: только APK ↔ все файлы</td></tr>
+  <tr><td><span class="btn-icon">↻</span></td><td>Обновить список</td></tr>
+  <tr><td>Тап на файл</td><td>Скачать</td></tr>
+</table>
+
+<!-- ======================== МОИ РЕПО ======================== -->
+<h1>📂 8. Экран «Мои репо»</h1>
+
+<div class="screen"><span class="hdr"> ‹  Мои репозитории                 <span class="hl">+  🔍</span></span>
+┌────────────────────────────────────┐
+│ zigorminsk-debug/PC-Tools          │
+│ ⭐ 5  ·  обновлён 2 часа назад     │
+├────────────────────────────────────┤
+│ zigorminsk-debug/ZI-GITHUB         │
+│ ⭐ 12  ·  обновлён 30 минут назад  │
+├────────────────────────────────────┤
+│ ...                                │
+└────────────────────────────────────┘
+</div>
+
+<table>
+  <tr><th>Кнопка</th><th>Назначение</th></tr>
+  <tr><td><span class="btn-icon">+</span></td><td><b>Создать</b> новый репозиторий</td></tr>
+  <tr><td><span class="btn-icon">🔍</span></td><td><b>Поиск</b> по всем репозиториям GitHub</td></tr>
+  <tr><td>Тап на репо</td><td>Выбрать → открыть запуски на главном экране</td></tr>
+</table>
+
+<!-- ======================== СОЗДАНИЕ РЕПО ======================== -->
+<h1>➕ 9. Создание репозитория</h1>
+
+<p>Открывается: <span class="btn-icon">+</span> в шапке или на экране «Мои репо».</p>
+
+<div class="screen"><span class="hdr"> ‹  Новый репозиторий</span>
+┌────────────────────────────────────┐
+│ ВЛАДЕЛЕЦ                           │
+│ ┌────────────────────────────┐     │
+│ │ zigorminsk-debug       ▼  │     │
+│ └────────────────────────────┘     │
+│                                    │
+│ ИМЯ РЕПОЗИТОРИЯ                    │
+│ ┌────────────────────────────┐     │
+│ │ my-app                     │     │
+│ └────────────────────────────┘     │
+│                                    │
+│ ОПИСАНИЕ (НЕОБЯЗАТЕЛЬНО)           │
+│ ┌────────────────────────────┐     │
+│ │ Мой новый проект           │     │
+│ └────────────────────────────┘     │
+│                                    │
+│ ☑ Приватный репозиторий            │
+│ ☑ Создать README                   │
+│                                    │
+│ .GITIGNORE: [Android          ▼]   │
+│ ЛИЦЕНЗИЯ:   [MIT              ▼]   │
+│                                    │
+│ ┌──────────────────────────────┐   │
+│ │     <span class="hl">Создать репозиторий</span>      │   │
+│ └──────────────────────────────┘   │
+└────────────────────────────────────┘
+</div>
+
+<p>После создания:</p>
+<ul>
+  <li><span class="btn btn-primary">Открыть в приложении</span> — сразу к запускам нового репо</li>
+  <li><span class="btn btn-secondary">На GitHub</span> — в браузере</li>
+  <li><span class="btn btn-secondary">Скопировать ссылку</span> — в буфер</li>
+</ul>
+
+<!-- ======================== РЕДАКТИРОВАНИЕ ======================== -->
+<h1>✏️ 10. Редактирование репозитория</h1>
+
+<p>Открывается: <span class="btn-icon">✏</span> в шапке главного экрана (когда репозиторий указан).</p>
+
+<table>
+  <tr><th>Поле</th><th>Что можно изменить</th></tr>
+  <tr><td>Имя</td><td>Переименование репозитория</td></tr>
+  <tr><td>Описание</td><td>Текст описания проекта</td></tr>
+  <tr><td>Домашняя страница</td><td>URL сайта проекта</td></tr>
+  <tr><td>Public / Private</td><td>Переключение видимости (кнопки)</td></tr>
+  <tr><td>Ветка по умолчанию</td><td>main, master и т.д.</td></tr>
+  <tr><td>Темы</td><td>Теги через запятую (android, kotlin)</td></tr>
+  <tr><td>Архивировать</td><td>Только чтение (опасная зона!)</td></tr>
+</table>
+
+<div class="warn">
+  ⚠️ При переименовании поле ввода и список запусков обновляются автоматически.
+</div>
+
+<!-- ======================== СКАЧАННЫЕ ФАЙЛЫ ======================== -->
+<h1>📁 11. Скачанные файлы</h1>
+
+<p>Все файлы, загруженные из GitHub. Открывается через нижнюю вкладку <b>«Файлы»</b> или <span class="btn-icon">⋮</span> → «Скачанные файлы».</p>
+
+<table>
+  <tr><th>Действие</th><th>Как</th></tr>
+  <tr><td>Открыть файл</td><td>Тап по файлу</td></tr>
+  <tr><td>Установить APK</td><td>Тап по APK</td></tr>
+  <tr><td>Поделиться</td><td>Удержание → «Поделиться»</td></tr>
+  <tr><td>Удалить</td><td>Удержание → «Удалить»</td></tr>
+</table>
+
+<!-- ======================== ОБНОВЛЕНИЯ ======================== -->
+<h1>🔄 12. Обновления приложения</h1>
+
+<h2>Автоматическая проверка</h2>
+<p>При каждом запуске приложения (тихо, в фоне, не чаще раза в 4 часа). Если есть новая версия — появится диалог.</p>
+
+<h2>Ручная проверка</h2>
+<div class="step">
+  <span class="step-num">1</span> <span class="btn-icon">⋮</span> → <span class="btn-menu">О приложении</span>
+</div>
+<div class="step">
+  <span class="step-num">2</span> <span class="btn btn-primary">Проверить обновления</span>
+</div>
+
+<h2>Диалог обновления</h2>
+<p>Показывает: новую и текущую версию, размер APK, дату, описание изменений.</p>
+<table>
+  <tr><th>Кнопка</th><th>Что делает</th></tr>
+  <tr><td><span class="btn btn-primary">Скачать и установить</span></td><td>Скачивает APK с прогрессом → запускает установку</td></tr>
+  <tr><td><span class="btn btn-secondary">На GitHub</span></td><td>Открывает страницу релиза в браузере</td></tr>
+  <tr><td><span class="btn btn-secondary">Позже</span></td><td>Закрыть диалог</td></tr>
+</table>
+
+<div class="info">
+  💡 Обновления ставятся <b>поверх</b> текущей версии — данные не теряются. Подпись постоянным ключом.
+</div>
+
+<!-- ======================== НАВИГАЦИЯ ======================== -->
+<h1>🧭 13. Нижняя панель навигации</h1>
+
+<div class="screen"><span class="hl">Запуски</span>      Релизы      Мои репо     Файлы
+  ━━━
+</div>
+
+<table>
+  <tr><th>Вкладка</th><th>Что открывает</th></tr>
+  <tr><td><b>Запуски</b></td><td>Главный экран — список Actions выбранного репозитория</td></tr>
+  <tr><td><b>Релизы</b></td><td>Файлы из GitHub Releases (APK, ZIP и др.)</td></tr>
+  <tr><td><b>Мои репо</b></td><td>Ваши репозитории + поиск + создание</td></tr>
+  <tr><td><b>Файлы</b></td><td>Все скачанные файлы</td></tr>
+</table>
+
+<!-- ======================== КОНТАКТЫ ======================== -->
+<h1>👨‍💻 Разработчик</h1>
+<p><b>Захаревич Игорь</b><br>
+E-mail: <a href="mailto:ziv@csl.by">ziv@csl.by</a> (тап по имени в шапке → письмо)<br>
+Репозиторий: <a href="https://github.com/zigorminsk-debug/ZI-GITHUB">zigorminsk-debug/ZI-GITHUB</a></p>
+
+</body>
+</html>

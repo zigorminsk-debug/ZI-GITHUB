@@ -47,6 +47,33 @@
         </LinearLayout>
 
         <TextView
+            android:id="@+id/editRepoBtn"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="&#9998;"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp" />
+
+        <TextView
+            android:id="@+id/addRepoBtn"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="+"
+            android:textColor="#FFFFFF"
+            android:textSize="26sp" />
+
+        <TextView
+            android:id="@+id/refreshBtn"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="&#8635;"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp" />
+
+        <TextView
             android:id="@+id/menuBtn"
             android:layout_width="44dp"
             android:layout_height="44dp"
