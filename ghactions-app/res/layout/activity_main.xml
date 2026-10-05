@@ -158,6 +158,47 @@
                 android:text="@string/download_source" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/connectRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/connect_hint"
+                android:textColor="@color/muted"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/copyUrlBtn"
+                    style="@style/BtnSecondary"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:text="@string/copy_url" />
+
+                <Button
+                    android:id="@+id/copyTokenBtn"
+                    style="@style/BtnSecondary"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:text="@string/copy_token" />
+            </LinearLayout>
+        </LinearLayout>
+
         <TextView
             android:id="@+id/tokenBanner"
             android:layout_width="match_parent"

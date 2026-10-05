@@ -16,6 +16,9 @@
     <string name="nav_files">Файлы</string>
     <string name="developer">Разработчик: Захаревич Игорь · ziv@csl.by</string>
     <string name="releases_btn">Релизы</string>
+    <string name="copy_url">Скопировать адрес</string>
+    <string name="copy_token">Скопировать токен</string>
+    <string name="connect_hint">ПОДКЛЮЧЕНИЕ ДРУГОЙ ПРОГРАММЫ</string>
     <string name="token_banner">⚠ Для скачивания артефактов сборок нужен токен GitHub. Нажмите, чтобы ввести →</string>
     <string name="empty_runs">Введите owner/repo и нажмите «Найти»,\nчтобы увидеть запуски GitHub Actions</string>
     <string name="empty_artifacts">У этого запуска нет артефактов</string>

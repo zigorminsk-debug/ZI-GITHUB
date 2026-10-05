@@ -57,7 +57,7 @@ public class MainActivity extends Activity {
     private EditText repoInput;
     private Button findBtn;
     private ProgressBar progress;
-    private View progressRow;
+    private View progressRow, connectRow;
     private TextView status, empty, tokenBanner;
     private ListView list;
 
@@ -109,6 +109,16 @@ public class MainActivity extends Activity {
                 startActivityForResult(new Intent(this, RepoPickerActivity.class), REQ_PICK_REPO));
 
         findViewById(R.id.sourceBtn).setOnClickListener(v -> downloadSourceZip());
+
+        // Подключение другой программы (git-клиента) к открытому репозиторию
+        connectRow = findViewById(R.id.connectRow);
+        View copyUrlBtn = findViewById(R.id.copyUrlBtn);
+        copyUrlBtn.setOnClickListener(v -> copyRepoUrl(false));
+        copyUrlBtn.setOnLongClickListener(v -> {
+            copyRepoUrl(true);
+            return true;
+        });
+        findViewById(R.id.copyTokenBtn).setOnClickListener(v -> copyToken());
 
         findViewById(R.id.releasesBtn).setOnClickListener(v -> {
             String repo = normalizeRepo(repoInput.getText().toString());
@@ -255,6 +265,7 @@ public class MainActivity extends Activity {
         repoInput.setText(repo);
         Store.setRepo(this, repo);
         currentRepo = repo;
+        connectRow.setVisibility(View.VISIBLE);
 
         final int mySeq = ++seq;
         all.clear();
@@ -544,6 +555,65 @@ public class MainActivity extends Activity {
         });
     }
 
+    // ------------------------------------- подключение другой программы к репо
+
+    /**
+     * Копирует git-адрес открытого репозитория для вставки в другую программу
+     * (MGit, Termux, GitJournal, настольный git-клиент и т. п.).
+     * Тап — чистый адрес; длинное нажатие — адрес со встроенным токеном
+     * (для программ, которые не умеют спрашивать логин и пароль отдельно).
+     */
+    private void copyRepoUrl(boolean withToken) {
+        String repo = currentRepo != null ? currentRepo : normalizeRepo(repoInput.getText().toString());
+        if (repo == null) {
+            toast("Сначала откройте репозиторий");
+            return;
+        }
+        String token = Store.token(this);
+        String url;
+        if (withToken) {
+            if (token.isEmpty()) {
+                toast("Токен не задан — копирую адрес без токена");
+                url = "https://github.com/" + repo + ".git";
+            } else {
+                url = "https://" + token + "@github.com/" + repo + ".git";
+            }
+        } else {
+            url = "https://github.com/" + repo + ".git";
+        }
+        if (copyToClipboard("git url", url)) {
+            toast(withToken && !token.isEmpty()
+                    ? "Адрес с токеном скопирован — вставьте его в другую программу.\nНе публикуйте эту строку: в ней ваш токен!"
+                    : "Адрес скопирован:\n" + url
+                    + "\n\nДля приватного репозитория укажите в программе логин — имя аккаунта, пароль — токен (кнопка «Скопировать токен»).");
+        }
+    }
+
+    /** Копирует токен GitHub — другая программа использует его как пароль. */
+    private void copyToken() {
+        String token = Store.token(this);
+        if (token.isEmpty()) {
+            toast("Токен ещё не задан");
+            showTokenDialog();
+            return;
+        }
+        if (copyToClipboard("github token", token)) {
+            toast("Токен скопирован — вставьте его в другую программу как пароль.\nНе передавайте токен посторонним!");
+        }
+    }
+
+    private boolean copyToClipboard(String label, String value) {
+        try {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                    getSystemService(Context.CLIPBOARD_SERVICE);
+            cm.setPrimaryClip(android.content.ClipData.newPlainText(label, value));
+            return true;
+        } catch (Exception e) {
+            toast("Не удалось скопировать: " + e.getMessage());
+            return false;
+        }
+    }
+
     private static final String UPDATE_REPO = "zigorminsk-debug/ZI-GITHUB";
 
     private void showAbout() {
@@ -563,6 +633,10 @@ public class MainActivity extends Activity {
                         + "3. Нажмите запуск → «Скачать» у нужного артефакта.\n"
                         + "4. Файл сохранится в «Загрузки»; если внутри APK — установка в один тап.\n"
                         + "5. Все загруженные файлы всегда под рукой: нижняя кнопка «Файлы».\n\n"
+                        + "Подключение другой программы к репозиторию:\n"
+                        + "у открытого репозитория есть кнопки «Скопировать адрес» (git-адрес; "
+                        + "долгое нажатие — адрес со встроенным токеном) и «Скопировать токен» "
+                        + "(в другой программе вставляется как пароль).\n\n"
                         + "Артефакты GitHub хранит 90 дней, потом удаляет — приложение помечает такие как «Истёк».")
                 .setPositiveButton("Проверить обновления", (d, w) -> checkForUpdate(false))
                 .setNeutralButton("Написать разработчику", (d, w) -> emailDeveloper())
