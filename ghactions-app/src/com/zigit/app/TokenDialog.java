@@ -181,7 +181,10 @@ final class TokenDialog {
                 sb.append("Не удалось проверить: ").append(e.getMessage());
             }
             final String report = sb.toString();
-            a.runOnUiThread(() -> cb.done(report));
+            a.runOnUiThread(() -> {
+                if (a.isFinishing()) return;
+                cb.done(report);
+            });
         }).start();
     }
 
