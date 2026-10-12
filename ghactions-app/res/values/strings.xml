@@ -7,6 +7,8 @@
     <string name="my_repos">Мои репо</string>
     <string name="download_source">Исходники</string>
     <string name="releases_title">Релизы</string>
+    <string name="new_repo_title">Новый репозиторий</string>
+    <string name="new_repo_btn">Создать</string>
     <string name="downloads_title">Скачанные файлы</string>
     <string name="nav_runs">Запуски</string>
     <string name="nav_releases">Релизы</string>
@@ -18,4 +20,8 @@
     <string name="empty_runs">Введите owner/repo и нажмите «Найти»,\nчтобы увидеть запуски GitHub Actions</string>
     <string name="empty_artifacts">У этого запуска нет артефактов</string>
     <string name="loading">Загрузка…</string>
+    <string name="logs_title">Логи сборки</string>
+    <string name="copy_all">Копировать</string>
+    <string name="empty_logs">Загружаю задания запуска…</string>
+    <string name="logs_copy_hint">Выделите текст long-press. Кнопка «Копировать» — весь лог в буфер</string>
 </resources>

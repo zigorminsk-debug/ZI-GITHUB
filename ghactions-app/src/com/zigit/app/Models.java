@@ -42,10 +42,10 @@ final class Models {
             r.updatedAt = o.optString("updated_at", "");
             r.runNumber = o.optInt("run_number", 0);
             JSONObject commit = o.optJSONObject("head_commit");
-            if (commit != null) {
-                String sha = commit.optString("id", "");
-                if (sha.length() >= 7) r.headSha = sha.substring(0, 7);
-            }
+            String sha = "";
+            if (commit != null) sha = commit.optString("id", "");
+            if (sha.isEmpty()) sha = o.optString("head_sha", "");
+            if (sha.length() >= 7) r.headSha = sha.substring(0, 7);
             return r;
         }
 
@@ -87,7 +87,15 @@ final class Models {
                 a.expiresAt = o.optString("expires_at", "");
                 a.expired = o.optBoolean("expired", false);
                 a.downloadCount = o.optInt("download_count", 0);
-                a.url = o.optString("url", "");
+                // Скачивать нужно archive_download_url (.../artifacts/{id}/zip),
+                // а не metadata url — иначе GitHub отдаёт JSON вместо архива.
+                a.url = o.optString("archive_download_url", "");
+                if (a.url.isEmpty()) {
+                    String meta = o.optString("url", "");
+                    if (!meta.isEmpty()) {
+                        a.url = meta.endsWith("/zip") ? meta : meta + "/zip";
+                    }
+                }
                 out.add(a);
             }
             return out;

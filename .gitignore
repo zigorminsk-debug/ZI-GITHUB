@@ -1,0 +1,6 @@
+ghactions-app/build/
+ghactions-app/out/
+.android/
+.sudo_as_admin_successful
+*.log
+.ci-keystore.jks
