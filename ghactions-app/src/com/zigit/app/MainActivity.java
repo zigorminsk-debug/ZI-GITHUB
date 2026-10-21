@@ -118,16 +118,12 @@ public class MainActivity extends Activity {
 
         findViewById(R.id.menuBtn).setOnClickListener(v -> showMenu(v));
 
-        list.setOnItemClickListener((parent, view, position, id) -> {
-            Models.RunItem r = shown.get(position);
-            Intent i = new Intent(this, ArtifactsActivity.class);
-            i.putExtra("repo", currentRepo);
-            i.putExtra("runId", r.id);
-            i.putExtra("title", r.title());
-            i.putExtra("branch", r.headBranch);
-            i.putExtra("number", r.runNumber);
-            i.putExtra("created", r.createdAt);
-            startActivity(i);
+        list.setOnItemClickListener((parent, view, position, id) -> openArtifacts(shown.get(position)));
+
+        // удержание строки — действия с запуском (в том числе удаление его артефактов)
+        list.setOnItemLongClickListener((parent, view, position, id) -> {
+            runActions(shown.get(position));
+            return true;
         });
 
         setupBottomNav();
@@ -147,6 +143,83 @@ public class MainActivity extends Activity {
         super.onResume();
         updateTokenBanner();
         if (tabLabels != null) highlightTab(TAB_RUNS);
+    }
+
+    private void openArtifacts(Models.RunItem r) {
+        Intent i = new Intent(this, ArtifactsActivity.class);
+        i.putExtra("repo", currentRepo);
+        i.putExtra("runId", r.id);
+        i.putExtra("title", r.title());
+        i.putExtra("branch", r.headBranch);
+        i.putExtra("number", r.runNumber);
+        i.putExtra("created", r.createdAt);
+        startActivity(i);
+    }
+
+    /** Меню по удержанию строки запуска. */
+    private void runActions(final Models.RunItem r) {
+        final List<String> actions = new ArrayList<>();
+        actions.add("Открыть артефакты");
+        if (r.artifactCount() > 0) {
+            actions.add("Удалить артефакты запуска (" + r.artifactCount() + ")");
+        }
+        actions.add("Открыть на GitHub");
+
+        new AlertDialog.Builder(this)
+                .setTitle(r.title())
+                .setItems(actions.toArray(new String[0]), (d, which) -> {
+                    String action = actions.get(which);
+                    if ("Открыть артефакты".equals(action)) {
+                        openArtifacts(r);
+                    } else if (action.startsWith("Удалить")) {
+                        deleteRunArtifacts(r);
+                    } else {
+                        openOnGithub(r);
+                    }
+                })
+                .show();
+    }
+
+    private void deleteRunArtifacts(final Models.RunItem r) {
+        if (currentRepo == null || r.artifactCount() == 0) {
+            toast("У этого запуска нет артефактов");
+            return;
+        }
+        GithubDelete.confirmArtifacts(this, currentRepo, new ArrayList<>(r.artifacts),
+                changed -> {
+                    if (!changed || isFinishing()) return;
+                    reloadRunArtifacts(r);
+                });
+    }
+
+    /** Обновляет артефакты одного запуска — после удаления части из них. */
+    private void reloadRunArtifacts(final Models.RunItem r) {
+        pool.execute(() -> {
+            try {
+                JSONObject o = Api.json(Api.API + "/repos/" + currentRepo
+                        + "/actions/runs/" + r.id + "/artifacts?per_page=100", Store.token(this));
+                final List<Models.ArtifactInfo> got =
+                        Models.ArtifactInfo.list(o.optJSONArray("artifacts"));
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    r.artifacts = got;
+                    r.artifactsLoaded = true;
+                    r.artifactsError = false;
+                    adapter.notifyDataSetChanged();
+                });
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    private void openOnGithub(Models.RunItem r) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://github.com/" + currentRepo
+                            + "/actions/runs/" + r.id)));
+        } catch (Exception e) {
+            toast("Нет браузера");
+        }
     }
 
     private void updateTokenBanner() {
@@ -369,8 +442,9 @@ public class MainActivity extends Activity {
         m.getMenu().add(0, 2, 1, onlyWithArtifacts
                 ? "Показать все запуски" : "Только запуски с артефактами");
         m.getMenu().add(0, 5, 2, "Скачанные файлы");
-        m.getMenu().add(0, 3, 3, "Токен GitHub");
-        m.getMenu().add(0, 4, 4, "О приложении и разработчике");
+        m.getMenu().add(0, 6, 3, "Удалить репозиторий…");
+        m.getMenu().add(0, 3, 4, "Токен GitHub");
+        m.getMenu().add(0, 4, 5, "О приложении и разработчике");
         m.setOnMenuItemClickListener((MenuItem item) -> {
             switch (item.getItemId()) {
                 case 1:
@@ -390,10 +464,40 @@ public class MainActivity extends Activity {
                 case 5:
                     startActivity(new Intent(this, DownloadsActivity.class));
                     break;
+                case 6:
+                    deleteCurrentRepo();
+                    break;
             }
             return true;
         });
         m.show();
+    }
+
+    /**
+     * Удаление репозитория, который сейчас открыт (или введён в поле).
+     * Требуется ввод полного имени — удаление на GitHub необратимо.
+     */
+    private void deleteCurrentRepo() {
+        final String repo = normalizeRepo(repoInput.getText().toString());
+        if (repo == null) {
+            toast("Сначала укажите репозиторий");
+            return;
+        }
+        GithubDelete.confirmRepo(this, repo, changed -> {
+            if (!changed || isFinishing()) return;
+            if (repo.equals(currentRepo) || repo.equals(Store.repo(this))) {
+                seq++;                      // отменяем незавершённую загрузку списка
+                currentRepo = null;
+                all.clear();
+                shown.clear();
+                adapter.notifyDataSetChanged();
+                hideProgress();
+                status.setText("");
+                repoInput.setText("");
+                Store.setRepo(this, "");
+                showEmpty("Репозиторий " + repo + " удалён с GitHub");
+            }
+        });
     }
 
     private void showTokenDialog() {
@@ -405,7 +509,7 @@ public class MainActivity extends Activity {
 
     private void showAbout() {
         new AlertDialog.Builder(this)
-                .setTitle("ZI Git 2.1")
+                .setTitle("ZI Git 2.2")
                 .setMessage("Загрузчик готовых сборок из GitHub Actions.\n\n"
                         + "Разработчик: Захаревич Игорь\n"
                         + "E-mail: ziv@csl.by\n\n"
@@ -415,6 +519,11 @@ public class MainActivity extends Activity {
                         + "3. Нажмите запуск → «Скачать» у нужного артефакта.\n"
                         + "4. Файл сохранится в «Загрузки»; если внутри APK — установка в один тап.\n"
                         + "5. Все загруженные файлы всегда под рукой: нижняя кнопка «Файлы».\n\n"
+                        + "Удаление (новое в 2.2):\n"
+                        + "• репозиторий — удержание строки в «Мои репо» или ⋮ → «Удалить репозиторий»;\n"
+                        + "• артефакт сборки — удержание строки в списке артефактов или ⋮ → «Удалить все»;\n"
+                        + "• для удаления токену нужны права: classic — delete_repo, "
+                        + "fine-grained — Administration / Actions: Read and write.\n\n"
                         + "Артефакты GitHub хранит 90 дней, потом удаляет — приложение помечает такие как «Истёк».")
                 .setPositiveButton("Написать разработчику", (d, w) -> emailDeveloper())
                 .setNeutralButton("Копировать e-mail", (d, w) -> copyEmail())

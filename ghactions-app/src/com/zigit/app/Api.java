@@ -81,16 +81,33 @@ final class Api {
     }
 
     static Response get(String url, String token) throws Exception {
+        return read(open(url, token));
+    }
+
+    /**
+     * DELETE-запрос: удаление репозитория или артефакта сборки.
+     * GitHub отвечает 204 No Content (тело пустое), а при нехватке прав — 403/404.
+     */
+    static Response delete(String url, String token) throws Exception {
         HttpURLConnection c = open(url, token);
-        int code = c.getResponseCode();
-        String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
-        Map<String, List<String>> h = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        for (Map.Entry<String, List<String>> e : c.getHeaderFields().entrySet()) {
-            if (e.getKey() != null) h.put(e.getKey(), e.getValue());
+        c.setRequestMethod("DELETE");
+        return read(c);
+    }
+
+    /** Дочитывает ответ и заголовки, затем закрывает соединение. */
+    private static Response read(HttpURLConnection c) throws Exception {
+        try {
+            int code = c.getResponseCode();
+            String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
+            Map<String, List<String>> h = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+            for (Map.Entry<String, List<String>> e : c.getHeaderFields().entrySet()) {
+                if (e.getKey() != null) h.put(e.getKey(), e.getValue());
+            }
+            if (code >= 400) throw new ApiException(code, message(body, code));
+            return new Response(code, body, h);
+        } finally {
+            c.disconnect();
         }
-        c.disconnect();
-        if (code >= 400) throw new ApiException(code, message(body, code));
-        return new Response(code, body, h);
     }
 
     /** Ссылка на следующую страницу из заголовка Link (или null). */

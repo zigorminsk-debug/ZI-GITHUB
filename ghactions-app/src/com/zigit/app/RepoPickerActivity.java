@@ -50,6 +50,8 @@ public class RepoPickerActivity extends Activity {
         String description;
         String pushedAt;
         String language;
+        /** Есть ли у токена права администратора (нужны, чтобы удалить репозиторий). */
+        boolean admin = true;
 
         static Repo from(JSONObject o) {
             Repo r = new Repo();
@@ -58,6 +60,8 @@ public class RepoPickerActivity extends Activity {
             r.description = o.optString("description", "");
             r.pushedAt = o.optString("pushed_at", "");
             r.language = o.optString("language", "");
+            JSONObject perms = o.optJSONObject("permissions");
+            if (perms != null) r.admin = perms.optBoolean("admin", false);
             return r;
         }
     }
@@ -78,11 +82,12 @@ public class RepoPickerActivity extends Activity {
         findViewById(R.id.backBtn).setOnClickListener(v -> finish());
         findViewById(R.id.searchBtn).setOnClickListener(v -> searchDialog());
 
-        list.setOnItemClickListener((parent, view, position, id) -> {
-            Intent data = new Intent();
-            data.putExtra("repo", items.get(position).fullName);
-            setResult(RESULT_OK, data);
-            finish();
+        list.setOnItemClickListener((parent, view, position, id) -> pick(items.get(position)));
+
+        // удержание строки — действия с репозиторием, в том числе удаление с GitHub
+        list.setOnItemLongClickListener((parent, view, position, id) -> {
+            repoActions(items.get(position));
+            return true;
         });
 
         loadMyRepos();
@@ -228,6 +233,85 @@ public class RepoPickerActivity extends Activity {
             } catch (Exception ignored) {
             }
         });
+    }
+
+    // -------------------------------------------------------- действия с репо
+
+    private void pick(Repo r) {
+        Intent data = new Intent();
+        data.putExtra("repo", r.fullName);
+        setResult(RESULT_OK, data);
+        finish();
+    }
+
+    /** Меню по удержанию строки. */
+    private void repoActions(final Repo r) {
+        final List<String> actions = new ArrayList<>();
+        actions.add("Открыть запуски");
+        actions.add("Копировать имя");
+        actions.add("Удалить репозиторий…");
+
+        new AlertDialog.Builder(this)
+                .setTitle(r.fullName)
+                .setItems(actions.toArray(new String[0]), (d, which) -> {
+                    switch (which) {
+                        case 0:
+                            pick(r);
+                            break;
+                        case 1:
+                            copyName(r.fullName);
+                            break;
+                        case 2:
+                            confirmDelete(r);
+                            break;
+                    }
+                })
+                .show();
+    }
+
+    private void confirmDelete(final Repo r) {
+        if (r.admin) {
+            askAndDelete(r);
+            return;
+        }
+        // токен есть, но без прав администратора — GitHub ответит 403.
+        new AlertDialog.Builder(this)
+                .setTitle("Удалить репозиторий?")
+                .setMessage("У токена нет прав администратора на " + r.fullName + ", поэтому "
+                        + "GitHub, скорее всего, откажет в удалении.\n\n"
+                        + "Нужны права: classic — scope delete_repo; fine-grained — "
+                        + "Administration: Read and write.")
+                .setPositiveButton("Всё равно попробовать", (d, w) -> askAndDelete(r))
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private void askAndDelete(final Repo r) {
+        GithubDelete.confirmRepo(this, r.fullName, changed -> {
+            if (!changed || isFinishing()) return;
+            items.remove(r);
+            adapter.notifyDataSetChanged();
+            titleView.setText(getString(R.string.my_repos)
+                    + (items.isEmpty() ? "" : " (" + items.size() + ")"));
+            setInfo("Репозиторий " + r.fullName + " удалён с GitHub");
+            if (r.fullName.equals(Store.repo(this))) Store.setRepo(this, "");
+            if (items.isEmpty()) {
+                empty.setText("Список пуст.\n\nПотяните «Обновить» или найдите репозиторий "
+                        + "через поиск 🔍 вверху.");
+                empty.setVisibility(View.VISIBLE);
+            }
+        });
+    }
+
+    private void copyName(String name) {
+        try {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                    getSystemService(CLIPBOARD_SERVICE);
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("repo", name));
+            toast("Скопировано: " + name);
+        } catch (Exception e) {
+            toast(name);
+        }
     }
 
     private void searchDialog() {

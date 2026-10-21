@@ -10,10 +10,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
+import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -84,6 +86,7 @@ public class ArtifactsActivity extends Activity {
 
         findViewById(R.id.backBtn).setOnClickListener(v -> finish());
         findViewById(R.id.refreshBtn).setOnClickListener(v -> load());
+        findViewById(R.id.menuBtn).setOnClickListener(v -> showMenu(v));
 
         ListView list = findViewById(R.id.list);
         adapter = new ArtAdapter();
@@ -95,6 +98,12 @@ public class ArtifactsActivity extends Activity {
                 return;
             }
             startDownload(a, position);
+        });
+
+        // удержание строки — удаление артефакта с GitHub
+        list.setOnItemLongClickListener((parent, view, position, id) -> {
+            artifactActions(items.get(position));
+            return true;
         });
 
         updateTokenBanner();
@@ -129,7 +138,9 @@ public class ArtifactsActivity extends Activity {
                         empty.setText("У этого запуска нет артефактов.\n\n"
                                 + "Артефакты появляются, если в workflow есть шаг\n"
                                 + "actions/upload-artifact\n\n"
-                                + "Также GitHub удаляет артефакты через 90 дней.");
+                                + "Также GitHub удаляет артефакты через 90 дней.\n\n"
+                                + "Удалить сборку вручную можно по удержанию строки в списке "
+                                + "или через меню ⋮ вверху.");
                     }
                 });
             } catch (Exception e) {
@@ -146,6 +157,86 @@ public class ArtifactsActivity extends Activity {
                 });
             }
         });
+    }
+
+    // ------------------------------------------------------- удаление с GitHub
+
+    private void showMenu(View anchor) {
+        PopupMenu m = new PopupMenu(this, anchor);
+        m.getMenu().add(0, 1, 0, "Обновить список");
+        m.getMenu().add(0, 2, 1, items.isEmpty()
+                ? "Удалить все артефакты"
+                : "Удалить все артефакты (" + items.size() + ")");
+        m.setOnMenuItemClickListener((MenuItem item) -> {
+            switch (item.getItemId()) {
+                case 1:
+                    load();
+                    break;
+                case 2:
+                    deleteAll();
+                    break;
+            }
+            return true;
+        });
+        m.show();
+    }
+
+    /** Меню по удержанию строки: скачать или удалить артефакт с GitHub. */
+    private void artifactActions(final Models.ArtifactInfo a) {
+        final List<String> actions = new ArrayList<>();
+        if (!a.expired) actions.add("Скачать");
+        actions.add("Удалить артефакт");
+        actions.add("Удалить все артефакты запуска");
+
+        new AlertDialog.Builder(this)
+                .setTitle(a.name)
+                .setItems(actions.toArray(new String[0]), (d, which) -> {
+                    String action = actions.get(which);
+                    if ("Скачать".equals(action)) {
+                        startDownload(a, items.indexOf(a));
+                    } else if ("Удалить артефакт".equals(action)) {
+                        deleteOne(a);
+                    } else {
+                        deleteAll();
+                    }
+                })
+                .show();
+    }
+
+    private void deleteOne(final Models.ArtifactInfo a) {
+        final List<Models.ArtifactInfo> one = new ArrayList<>();
+        one.add(a);
+        GithubDelete.confirmArtifacts(this, repo, one, changed -> {
+            if (!changed || isFinishing()) return;
+            items.remove(a);
+            adapter.notifyDataSetChanged();
+            updateEmptyState();
+        });
+    }
+
+    private void deleteAll() {
+        if (items.isEmpty()) {
+            toast("Артефактов нет");
+            return;
+        }
+        GithubDelete.confirmArtifacts(this, repo, new ArrayList<>(items), changed -> {
+            if (!changed || isFinishing()) return;
+            items.clear();
+            adapter.notifyDataSetChanged();
+            updateEmptyState();
+            // что-то могло не удалиться — сверяемся с GitHub
+            load();
+        });
+    }
+
+    private void updateEmptyState() {
+        if (items.isEmpty()) {
+            empty.setText("Артефактов нет.\n\n"
+                    + "Удалённые вручную сборки GitHub не восстанавливает.");
+            empty.setVisibility(View.VISIBLE);
+        } else {
+            empty.setVisibility(View.GONE);
+        }
     }
 
     private void startDownload(final Models.ArtifactInfo a, final int pos) {

@@ -34,9 +34,12 @@ final class TokenDialog {
         info.setText("Зачем токен:\n"
                 + "• GitHub отдаёт артефакты сборок только авторизованным запросам;\n"
                 + "• доступ к приватным репозиториям;\n"
+                + "• удаление репозиториев и артефактов;\n"
                 + "• лимит 5000 запросов в час вместо 60.\n\n"
                 + "Токен хранится только на этом устройстве. Создавайте его для того аккаунта, "
-                + "в котором лежат ваши проекты.");
+                + "в котором лежат ваши проекты.\n\n"
+                + "Удаление: classic — scope delete_repo, fine-grained — "
+                + "Administration / Actions: Read and write.");
         box.addView(info);
 
         final EditText input = new EditText(a);
@@ -79,9 +82,10 @@ final class TokenDialog {
         box.addView(fineGrained);
 
         Button classic = new Button(a);
-        classic.setText("Создать classic токен (repo + workflow)");
+        classic.setText("Создать classic токен (repo + workflow + delete_repo)");
         classic.setOnClickListener(v ->
-                open(a, "https://github.com/settings/tokens/new?scopes=repo,workflow&description=Actions%20Loader"));
+                open(a, "https://github.com/settings/tokens/new?scopes=repo,workflow,delete_repo"
+                        + "&description=ZI%20Git"));
         box.addView(classic);
 
         new AlertDialog.Builder(a)
@@ -175,6 +179,9 @@ final class TokenDialog {
                 } else {
                     sb.append("Всё в порядке: токен видит ваши репозитории.");
                 }
+                sb.append("\n\nУдаление репозиториев и артефактов: classic-токену нужен scope "
+                        + "delete_repo, fine-grained — Administration: Read and write "
+                        + "(репозитории) и Actions: Read and write (артефакты).");
             } catch (Api.ApiException e) {
                 sb.append("Ошибка ").append(e.code).append(": ").append(e.getMessage());
             } catch (Exception e) {
