@@ -245,7 +245,7 @@ public class StorageActivity extends Activity {
         if (!hasToken) {
             card("Нужен токен GitHub",
                     "Занятое место GitHub отдаёт только авторизованным запросам.\n"
-                            + "Меню ⋮ → «Токен GitHub» на главном экране, затем обновите этот экран.", null);
+                            + "Меню ⋮ → «Токен GitHub» на главном экране, затем обновите этот экран.", -1);
             return;
         }
 
