@@ -82,6 +82,8 @@ public class RepoPickerActivity extends Activity {
         findViewById(R.id.backBtn).setOnClickListener(v -> finish());
         findViewById(R.id.searchBtn).setOnClickListener(v -> searchDialog());
         findViewById(R.id.addBtn).setOnClickListener(v -> createRepo());
+        findViewById(R.id.cleanupBtn).setOnClickListener(v ->
+                startActivity(new Intent(this, CleanupActivity.class)));
 
         list.setOnItemClickListener((parent, view, position, id) -> pick(items.get(position)));
 
@@ -252,6 +254,7 @@ public class RepoPickerActivity extends Activity {
         final List<String> actions = new ArrayList<>();
         actions.add("Открыть запуски");
         actions.add("Копировать имя");
+        actions.add("🧹 Очистить артефакты этого репозитория");
         actions.add("🗑 Удалить репозиторий…");
 
         new AlertDialog.Builder(this)
@@ -265,11 +268,114 @@ public class RepoPickerActivity extends Activity {
                             copyName(r.fullName);
                             break;
                         case 2:
+                            cleanRepoArtifacts(r);
+                            break;
+                        case 3:
                             confirmDelete(r);
                             break;
                     }
                 })
                 .show();
+    }
+
+    /** Удаление всех артефактов и кэшей одного репозитория — освобождает квоту. */
+    private void cleanRepoArtifacts(final Repo r) {
+        new AlertDialog.Builder(this)
+                .setTitle("Очистить артефакты?")
+                .setMessage("Из " + r.fullName + " будут удалены все артефакты сборок и кэши "
+                        + "Actions. Это освобождает общую квоту хранилища аккаунта.\n\n"
+                        + "Удаление необратимо.")
+                .setPositiveButton("Продолжить", (d, w) -> cleanInBackground(r))
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private void cleanInBackground(final Repo r) {
+        final android.app.AlertDialog wait = new android.app.AlertDialog.Builder(this)
+                .setMessage("Удаляю артефакты из " + r.fullName + "…")
+                .setCancelable(false)
+                .create();
+        wait.show();
+
+        final String token = Store.token(this);
+        pool.execute(() -> {
+            int deleted = 0;
+            long freed = 0;
+            String error = null;
+            try {
+                String url = Api.API + "/repos/" + r.fullName + "/actions/artifacts?per_page=100";
+                int pages = 0;
+                while (url != null && pages < 20) {
+                    Api.Response resp = Api.get(url, token);
+                    JSONObject o = new JSONObject(resp.body);
+                    JSONArray arr = o.optJSONArray("artifacts");
+                    if (arr != null) {
+                        for (int i = 0; i < arr.length(); i++) {
+                            JSONObject a = arr.optJSONObject(i);
+                            if (a == null) continue;
+                            long id = a.optLong("id");
+                            try {
+                                Api.delete(Api.API + "/repos/" + r.fullName
+                                        + "/actions/artifacts/" + id, token);
+                                deleted++;
+                                freed += a.optLong("size_in_bytes", 0);
+                            } catch (Exception e) {
+                                if (error == null) error = e.getMessage();
+                            }
+                        }
+                    }
+                    url = Api.nextPage(resp);
+                    pages++;
+                }
+                String curls = Api.API + "/repos/" + r.fullName + "/actions/caches?per_page=100";
+                int cpages = 0;
+                while (curls != null && cpages < 20) {
+                    Api.Response resp = Api.get(curls, token);
+                    JSONObject o = new JSONObject(resp.body);
+                    JSONArray arr = o.optJSONArray("actions_caches");
+                    if (arr != null) {
+                        for (int i = 0; i < arr.length(); i++) {
+                            JSONObject c = arr.optJSONObject(i);
+                            if (c == null) continue;
+                            try {
+                                Api.delete(Api.API + "/repos/" + r.fullName
+                                        + "/actions/caches/" + c.optLong("id"), token);
+                                deleted++;
+                                freed += c.optLong("size_in_bytes", 0);
+                            } catch (Exception e) {
+                                if (error == null) error = e.getMessage();
+                            }
+                        }
+                    }
+                    curls = Api.nextPage(resp);
+                    cpages++;
+                }
+            } catch (Exception e) {
+                if (error == null) error = e.getMessage();
+            }
+
+            final int fDeleted = deleted;
+            final long fFreed = freed;
+            final String fError = error;
+            ui.post(() -> {
+                try {
+                    wait.dismiss();
+                } catch (Exception ignored) {
+                }
+                if (isFinishing()) return;
+                String msg = "Удалено: " + fDeleted + " шт. · освобождено " + Util.humanSize(fFreed);
+                if (fError != null) msg += "\n\nЗамечание: " + fError;
+                new AlertDialog.Builder(this)
+                        .setTitle("Готово")
+                        .setMessage(msg)
+                        .setPositiveButton("ОК", (d, w) -> {
+                            items.clear();
+                            adapter.notifyDataSetChanged();
+                            loadMyRepos();
+                        })
+                        .show();
+            });
+        });
     }
 
     private void confirmDelete(final Repo r) {

@@ -335,6 +335,10 @@ public class StorageActivity extends Activity {
                     + "Settings → Billing and plans.");
         }
         card("Платное хранилище", bill.toString().trim(), -1);
+
+        // быстрый переход к освобождению места
+        actionButton("🧹 Очистить: удалить старые артефакты и кэши",
+                () -> startActivity(new Intent(this, CleanupActivity.class)));
     }
 
     private int pct(long used, long limit) {
@@ -343,6 +347,23 @@ public class StorageActivity extends Activity {
     }
 
     /** Карточка: заголовок, текст и (необязательно) полоса заполнения. */
+    /** Кнопка-действие под карточками (переход к очистке хранилища). */
+    private void actionButton(String text, Runnable onClick) {
+        TextView btn = new TextView(this);
+        btn.setText(text);
+        btn.setTextSize(13);
+        btn.setTextColor(getResources().getColor(R.color.text));
+        btn.setBackgroundResource(R.drawable.bg_button_secondary);
+        int pad = Util.dp(this, 12);
+        btn.setPadding(pad, pad, pad, pad);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = Util.dp(this, 10);
+        btn.setLayoutParams(lp);
+        btn.setOnClickListener(v -> onClick.run());
+        content.addView(btn);
+    }
+
     private void card(String title, String body, int percent) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);

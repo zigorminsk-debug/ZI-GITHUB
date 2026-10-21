@@ -466,6 +466,7 @@ public class MainActivity extends Activity {
         m.getMenu().add(0, 6, 3, "📖 Инструкция");
         m.getMenu().add(0, 7, 4, "🗑 Удалить репозиторий…");
         m.getMenu().add(0, 8, 5, "💾 Хранилище GitHub (занято/свободно)");
+        m.getMenu().add(0, 9, 6, "🧹 Очистка хранилища (артефакты и кэши)");
         m.getMenu().add(0, 3, 6, "Токен GitHub");
         m.getMenu().add(0, 4, 7, "О приложении и разработчике");
         m.setOnMenuItemClickListener((MenuItem item) -> {
@@ -495,6 +496,9 @@ public class MainActivity extends Activity {
                     break;
                 case 8:
                     openStorage();
+                    break;
+                case 9:
+                    startActivity(new Intent(this, CleanupActivity.class));
                     break;
             }
             return true;
@@ -637,8 +641,8 @@ public class MainActivity extends Activity {
     private static final String UPDATE_REPO = "zigorminsk-debug/ZI-GITHUB";
 
     private void showAbout() {
-        String ver = "3.1";
-        long code = 30;
+        String ver = "3.2";
+        long code = 31;
         try {
             android.content.pm.PackageInfo pi = getPackageManager()
                     .getPackageInfo(getPackageName(), 0);
@@ -663,6 +667,9 @@ public class MainActivity extends Activity {
                         + "строки в списке артефактов. Нужны права: classic — delete_repo, "
                         + "fine-grained — Administration / Actions: Read and write.\n\n"
                         + "Хранилище: ⋮ → «Хранилище GitHub» — занято и свободно.\n\n"
+                        + "Кончилась квота («Artifact storage quota has been hit»)? "
+                        + "⋮ → «Очистка хранилища» — удаляет старые артефакты и кэши "
+                        + "по всем репозиториям.\n\n"
                         + "Артефакты GitHub хранит 90 дней, потом удаляет — приложение помечает такие как «Истёк».")
                 .setPositiveButton("Проверить обновления", (d, w) -> checkForUpdate(false))
                 .setNeutralButton("Написать разработчику", (d, w) -> emailDeveloper())
@@ -740,7 +747,7 @@ public class MainActivity extends Activity {
                 // версия «новее», если новее номер ИЛИ (при равном номере) больше versionCode;
                 // прежние сборки 2.x/3.0 с большим versionCode тоже получат обновление
                 final boolean hasUpdate = isNewer(newVer, currentVer)
-                        || (newVer.equals(currentVer) && currentCode < 30);
+                        || (newVer.equals(currentVer) && currentCode < 31);
                 final String fApkUrl = apkUrl;
                 final String fApkApiUrl = apkApiUrl;
                 final String fApkName = apkName;

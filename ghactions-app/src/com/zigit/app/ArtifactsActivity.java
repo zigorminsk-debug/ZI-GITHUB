@@ -168,6 +168,7 @@ public class ArtifactsActivity extends Activity {
                 ? "Удалить все артефакты"
                 : "🗑 Удалить все артефакты (" + items.size() + ")");
         m.getMenu().add(0, 3, 2, "💾 Хранилище этого репозитория");
+        m.getMenu().add(0, 4, 3, "🧹 Очистка хранилища аккаунта");
         m.setOnMenuItemClickListener((MenuItem item) -> {
             switch (item.getItemId()) {
                 case 1:
@@ -182,6 +183,9 @@ public class ArtifactsActivity extends Activity {
                     startActivity(i);
                     break;
                 }
+                case 4:
+                    startActivity(new Intent(this, CleanupActivity.class));
+                    break;
             }
             return true;
         });

@@ -20,6 +20,7 @@
     <string name="empty_runs">Введите owner/repo и нажмите «Найти»,\nчтобы увидеть запуски GitHub Actions</string>
     <string name="empty_artifacts">У этого запуска нет артефактов</string>
     <string name="storage_title">Хранилище GitHub</string>
+    <string name="cleanup_title">Очистка хранилища</string>
     <string name="loading">Загрузка…</string>
     <string name="logs_title">Логи сборки</string>
     <string name="copy_all">Копировать</string>
