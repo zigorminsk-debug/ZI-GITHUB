@@ -467,6 +467,7 @@ public class MainActivity extends Activity {
         m.getMenu().add(0, 7, 4, "🗑 Удалить репозиторий…");
         m.getMenu().add(0, 8, 5, "💾 Хранилище GitHub (занято/свободно)");
         m.getMenu().add(0, 9, 6, "🧹 Очистка хранилища (артефакты и кэши)");
+        m.getMenu().add(0, 10, 7, "🧹 Очистить репозиторий, оставив 2 успешных");
         m.getMenu().add(0, 3, 6, "Токен GitHub");
         m.getMenu().add(0, 4, 7, "О приложении и разработчике");
         m.setOnMenuItemClickListener((MenuItem item) -> {
@@ -500,6 +501,15 @@ public class MainActivity extends Activity {
                 case 9:
                     startActivity(new Intent(this, CleanupActivity.class));
                     break;
+                case 10: {
+                    String repo = normalizeRepo(repoInput.getText().toString());
+                    if (repo == null) {
+                        toast("Сначала укажите репозиторий");
+                        break;
+                    }
+                    CleanupActivity.openRepo(this, repo);
+                    break;
+                }
             }
             return true;
         });
@@ -641,8 +651,8 @@ public class MainActivity extends Activity {
     private static final String UPDATE_REPO = "zigorminsk-debug/ZI-GITHUB";
 
     private void showAbout() {
-        String ver = "3.2";
-        long code = 31;
+        String ver = "3.3";
+        long code = 32;
         try {
             android.content.pm.PackageInfo pi = getPackageManager()
                     .getPackageInfo(getPackageName(), 0);
