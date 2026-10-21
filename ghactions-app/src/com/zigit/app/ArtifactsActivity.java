@@ -167,6 +167,7 @@ public class ArtifactsActivity extends Activity {
         m.getMenu().add(0, 2, 1, items.isEmpty()
                 ? "Удалить все артефакты"
                 : "Удалить все артефакты (" + items.size() + ")");
+        m.getMenu().add(0, 3, 2, "Хранилище этого репозитория");
         m.setOnMenuItemClickListener((MenuItem item) -> {
             switch (item.getItemId()) {
                 case 1:
@@ -175,6 +176,12 @@ public class ArtifactsActivity extends Activity {
                 case 2:
                     deleteAll();
                     break;
+                case 3: {
+                    Intent i = new Intent(this, StorageActivity.class);
+                    i.putExtra("repo", repo);
+                    startActivity(i);
+                    break;
+                }
             }
             return true;
         });

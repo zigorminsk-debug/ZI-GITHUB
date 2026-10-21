@@ -52,6 +52,11 @@
             android:exported="false"
             android:label="@string/releases_title" />
 
+        <activity
+            android:name=".StorageActivity"
+            android:exported="false"
+            android:label="@string/storage_title" />
+
         <provider
             android:name=".FileProviderX"
             android:authorities="com.zigit.app.fileprovider"

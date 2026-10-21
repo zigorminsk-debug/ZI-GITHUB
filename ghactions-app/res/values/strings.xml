@@ -17,5 +17,6 @@
     <string name="token_banner">⚠ Для скачивания артефактов сборок нужен токен GitHub. Нажмите, чтобы ввести →</string>
     <string name="empty_runs">Введите owner/repo и нажмите «Найти»,\nчтобы увидеть запуски GitHub Actions</string>
     <string name="empty_artifacts">У этого запуска нет артефактов</string>
+    <string name="storage_title">Хранилище GitHub</string>
     <string name="loading">Загрузка…</string>
 </resources>

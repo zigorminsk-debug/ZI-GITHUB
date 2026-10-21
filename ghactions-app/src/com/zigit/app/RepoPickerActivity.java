@@ -81,6 +81,7 @@ public class RepoPickerActivity extends Activity {
 
         findViewById(R.id.backBtn).setOnClickListener(v -> finish());
         findViewById(R.id.searchBtn).setOnClickListener(v -> searchDialog());
+        findViewById(R.id.menuBtn).setOnClickListener(this::showMenu);
 
         list.setOnItemClickListener((parent, view, position, id) -> pick(items.get(position)));
 
@@ -233,6 +234,26 @@ public class RepoPickerActivity extends Activity {
             } catch (Exception ignored) {
             }
         });
+    }
+
+    private void showMenu(View anchor) {
+        android.widget.PopupMenu m = new android.widget.PopupMenu(this, anchor);
+        m.getMenu().add(0, 1, 0, "Хранилище GitHub (занято/свободно)");
+        m.getMenu().add(0, 2, 1, "Обновить список");
+        m.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case 1:
+                    startActivity(new Intent(this, StorageActivity.class));
+                    break;
+                case 2:
+                    items.clear();
+                    adapter.notifyDataSetChanged();
+                    loadMyRepos();
+                    break;
+            }
+            return true;
+        });
+        m.show();
     }
 
     // -------------------------------------------------------- действия с репо

@@ -443,8 +443,9 @@ public class MainActivity extends Activity {
                 ? "Показать все запуски" : "Только запуски с артефактами");
         m.getMenu().add(0, 5, 2, "Скачанные файлы");
         m.getMenu().add(0, 6, 3, "Удалить репозиторий…");
-        m.getMenu().add(0, 3, 4, "Токен GitHub");
-        m.getMenu().add(0, 4, 5, "О приложении и разработчике");
+        m.getMenu().add(0, 7, 4, "Хранилище GitHub (занято/свободно)");
+        m.getMenu().add(0, 3, 5, "Токен GitHub");
+        m.getMenu().add(0, 4, 6, "О приложении и разработчике");
         m.setOnMenuItemClickListener((MenuItem item) -> {
             switch (item.getItemId()) {
                 case 1:
@@ -466,6 +467,9 @@ public class MainActivity extends Activity {
                     break;
                 case 6:
                     deleteCurrentRepo();
+                    break;
+                case 7:
+                    openStorage();
                     break;
             }
             return true;
@@ -498,6 +502,14 @@ public class MainActivity extends Activity {
                 showEmpty("Репозиторий " + repo + " удалён с GitHub");
             }
         });
+    }
+
+    /** Экран «Хранилище»: сколько места занято и сколько осталось. */
+    private void openStorage() {
+        Intent i = new Intent(this, StorageActivity.class);
+        String repo = normalizeRepo(repoInput.getText().toString());
+        if (repo != null) i.putExtra("repo", repo);
+        startActivity(i);
     }
 
     private void showTokenDialog() {
