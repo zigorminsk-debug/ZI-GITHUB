@@ -549,7 +549,7 @@ public class CleanupActivity extends Activity {
                                 + ".\nОстанутся артефакты двух последних успешных сборок "
                                 + "в каждом репозитории.\n\nУдаление необратимо.")
                         .setPositiveButton("Удалить", (d, w) -> deleteAll(fRemove, false))
-                        .setNegativeButton("Отмена", () -> render())
+                        .setNegativeButton("Отмена", (d, w) -> render())
                         .show();
             });
         });
