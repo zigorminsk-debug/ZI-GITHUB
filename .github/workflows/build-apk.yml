@@ -6,9 +6,9 @@
 # что и локально (без Gradle), и публикует результат как артефакт «ZI-Git-APK».
 #
 # Результат: Actions → запуск «Build APK» → артефакт ZI-Git-APK.zip,
-# внутри — ZIGit.apk. В приложении: удержите запуск → «Удалить артефакты запуска»
-# или откройте запуск → «Скачать». Ветку можно выбрать вручную:
-# Actions → Build APK → Run workflow → нужная ветка.
+# внутри — ZIGit.apk. В приложении: откройте запуск → «Скачать»
+# (или удержите запуск → «Удалить артефакты запуска», чтобы почистить старые сборки).
+# Ветку для ручного запуска можно выбрать: Actions → Build APK → Run workflow.
 
 name: Build APK
 
@@ -20,7 +20,7 @@ on:
   workflow_dispatch:        # кнопка «Run workflow» в интерфейсе GitHub
 
 permissions:
-  contents: read
+  contents: write      # нужно только для шага с релизом (теги v*)
 
 jobs:
   build:
@@ -29,10 +29,10 @@ jobs:
 
     steps:
       - name: Получить код
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Установить JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
