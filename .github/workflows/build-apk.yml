@@ -47,7 +47,25 @@ jobs:
           # setup-android выставляет ANDROID_SDK_ROOT; build.sh читает ANDROID_HOME
           export ANDROID_HOME="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           chmod +x build.sh
-          ./build.sh
+          set -o pipefail
+          ./build.sh 2>&1 | tee build-log.txt
+
+      # Если сборка упала — лог выкладывается в ветку ci-log, чтобы причину
+      # можно было прочитать без доступа к хранилищу артефактов GitHub.
+      - name: Выложить лог ошибки в ветку ci-log
+        if: failure() && github.event_name == 'pull_request'
+        run: |
+          mkdir -p /tmp/diag
+          cp -t /tmp/diag build-log.txt ghactions-app/build/javac.log 2>/dev/null || true
+          cd /tmp/diag
+          git init -q
+          git checkout -q -b ci-log
+          git add -A
+          git -c user.name="ZI Git CI" -c user.email="ci@users.noreply.github.com" \
+            commit -qm "лог сборки ${GITHUB_RUN_ID}"
+          git push -f \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            ci-log
 
       - name: Показать результат
         run: |
