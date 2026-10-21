@@ -43,6 +43,26 @@
             android:label="@string/my_repos" />
 
         <activity
+            android:name=".NewRepoActivity"
+            android:exported="false"
+            android:label="@string/new_repo_title" />
+
+        <activity
+            android:name=".EditRepoActivity"
+            android:exported="false"
+            android:label="Редактировать репозиторий" />
+
+        <activity
+            android:name=".HelpActivity"
+            android:exported="false"
+            android:label="Инструкция" />
+
+        <activity
+            android:name=".UploadActivity"
+            android:exported="false"
+            android:label="Загрузить в репозиторий" />
+
+        <activity
             android:name=".DownloadsActivity"
             android:exported="false"
             android:label="@string/downloads_title" />
@@ -56,6 +76,11 @@
             android:name=".StorageActivity"
             android:exported="false"
             android:label="@string/storage_title" />
+
+        <activity
+            android:name=".LogsActivity"
+            android:exported="false"
+            android:label="@string/logs_title" />
 
         <provider
             android:name=".FileProviderX"

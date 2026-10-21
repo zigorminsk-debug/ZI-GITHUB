@@ -23,6 +23,7 @@ import android.widget.Toast;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -86,7 +87,8 @@ public class ArtifactsActivity extends Activity {
 
         findViewById(R.id.backBtn).setOnClickListener(v -> finish());
         findViewById(R.id.refreshBtn).setOnClickListener(v -> load());
-        findViewById(R.id.menuBtn).setOnClickListener(v -> showMenu(v));
+        findViewById(R.id.logsBtn).setOnClickListener(v -> openLogs());
+        findViewById(R.id.menuBtn).setOnClickListener(this::showMenu);
 
         ListView list = findViewById(R.id.list);
         adapter = new ArtAdapter();
@@ -100,7 +102,7 @@ public class ArtifactsActivity extends Activity {
             startDownload(a, position);
         });
 
-        // удержание строки — удаление артефакта с GitHub
+        // удержание строки — действия: скачать / удалить с GitHub
         list.setOnItemLongClickListener((parent, view, position, id) -> {
             artifactActions(items.get(position));
             return true;
@@ -138,9 +140,7 @@ public class ArtifactsActivity extends Activity {
                         empty.setText("У этого запуска нет артефактов.\n\n"
                                 + "Артефакты появляются, если в workflow есть шаг\n"
                                 + "actions/upload-artifact\n\n"
-                                + "Также GitHub удаляет артефакты через 90 дней.\n\n"
-                                + "Удалить сборку вручную можно по удержанию строки в списке "
-                                + "или через меню ⋮ вверху.");
+                                + "Также GitHub удаляет артефакты через 90 дней.");
                     }
                 });
             } catch (Exception e) {
@@ -166,8 +166,8 @@ public class ArtifactsActivity extends Activity {
         m.getMenu().add(0, 1, 0, "Обновить список");
         m.getMenu().add(0, 2, 1, items.isEmpty()
                 ? "Удалить все артефакты"
-                : "Удалить все артефакты (" + items.size() + ")");
-        m.getMenu().add(0, 3, 2, "Хранилище этого репозитория");
+                : "🗑 Удалить все артефакты (" + items.size() + ")");
+        m.getMenu().add(0, 3, 2, "💾 Хранилище этого репозитория");
         m.setOnMenuItemClickListener((MenuItem item) -> {
             switch (item.getItemId()) {
                 case 1:
@@ -188,11 +188,11 @@ public class ArtifactsActivity extends Activity {
         m.show();
     }
 
-    /** Меню по удержанию строки: скачать или удалить артефакт с GitHub. */
+    /** Меню по удержанию строки. */
     private void artifactActions(final Models.ArtifactInfo a) {
         final List<String> actions = new ArrayList<>();
         if (!a.expired) actions.add("Скачать");
-        actions.add("Удалить артефакт");
+        actions.add("🗑 Удалить артефакт");
         actions.add("Удалить все артефакты запуска");
 
         new AlertDialog.Builder(this)
@@ -201,7 +201,7 @@ public class ArtifactsActivity extends Activity {
                     String action = actions.get(which);
                     if ("Скачать".equals(action)) {
                         startDownload(a, items.indexOf(a));
-                    } else if ("Удалить артефакт".equals(action)) {
+                    } else if (action.startsWith("Удалить артефакт")) {
                         deleteOne(a);
                     } else {
                         deleteAll();
@@ -231,8 +231,7 @@ public class ArtifactsActivity extends Activity {
             items.clear();
             adapter.notifyDataSetChanged();
             updateEmptyState();
-            // что-то могло не удалиться — сверяемся с GitHub
-            load();
+            load();   // сверяемся с GitHub: что-то могло не удалиться
         });
     }
 
@@ -265,7 +264,7 @@ public class ArtifactsActivity extends Activity {
             final File tmp = new File(getCacheDir(), "art_" + a.id + ".zip");
             try {
                 Api.download(a.url, Store.token(this), tmp, (done, total) -> ui.post(() -> {
-                    if (isFinishing()) return;
+                    if (isFinishing() || isDestroyed()) return;
                     int pct = total > 0 ? (int) (done * 100 / total) : 0;
                     String t = (total > 0 ? pct + "%  " : "") + Util.humanSize(done)
                             + (total > 0 ? " / " + Util.humanSize(total) : "");
@@ -275,39 +274,56 @@ public class ArtifactsActivity extends Activity {
                     adapter.notifyDataSetChanged();
                 }));
 
-                ui.post(() -> progressText.setText(a.name + ": сохраняю в «Загрузки»…"));
-                String display = Util.safeName(a.name) + ".zip";
-                final Util.Saved saved = Util.save(this, tmp, display, "application/zip");
+                ui.post(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        progressText.setText(a.name + ": извлекаю APK…");
+                    }
+                });
+                File apkBase = getExternalFilesDir(null);
+                if (apkBase == null) apkBase = getFilesDir();
+                File apkDir = new File(apkBase, FileProviderX.DIR_APK);
+                File apk = ZipExtract.apkFrom(tmp, apkDir);
 
-                // ищем APK внутри архива
-                File apk = Util.extractFirstApk(tmp, new File(getExternalFilesDir(null), FileProviderX.DIR_APK));
-
-                // проверяем, что достали валидный APK, и кладём его в «Загрузки» отдельным файлом,
-                // чтобы можно было установить и из файлового менеджера
+                // проверяем, что достали целый APK, и сохраняем его в «Загрузки» отдельным
+                // файлом: установить можно и из файлового менеджера
                 final String apkProblem = apk == null ? null : Util.checkApk(apk);
                 if (apk != null && apkProblem == null) {
                     try {
-                        Util.copyToDownloads(this, apk,
-                                Util.safeName(a.name) + ".apk",
+                        Util.copyToDownloads(this, apk, Util.safeName(a.name) + ".apk",
                                 "application/vnd.android.package-archive");
                     } catch (Exception ignored) {
                     }
                 }
-
-                final File apkFinal = apkProblem == null ? apk : null;
                 ui.post(() -> {
-                    if (isFinishing()) return;
+                    if (!isFinishing() && !isDestroyed()) {
+                        progressText.setText(a.name + ": сохраняю…");
+                    }
+                });
+                final Util.Saved saved = Util.save(this, apk, apk.getName(), "application/octet-stream");
+                // битый APK не предлагаем ставить — покажем причину
+                final File apkFinal = apkProblem == null ? apk : null;
+                if (apkProblem != null) {
+                    ui.post(() -> toast("APK повреждён: " + apkProblem));
+                }
+                ui.post(() -> {
+                    if (isFinishing() || isDestroyed()) return;
                     downloading = false;
                     a.uiState = null;
                     progressRow.setVisibility(View.GONE);
                     adapter.notifyDataSetChanged();
-                    resultDialog(a, saved, apkFinal);
+                    try {
+                        resultDialog(a, saved, apkFinal);
+                    } catch (Exception ignored) {
+                        toast("Сохранено: " + saved.publicPath);
+                    }
                 });
             } catch (Exception e) {
-                final String msg = e.getMessage();
+                String detail = e.getMessage();
+                if (detail == null || detail.isEmpty()) detail = e.getClass().getSimpleName();
+                final String msg = detail;
                 final int code = e instanceof Api.ApiException ? ((Api.ApiException) e).code : 0;
                 ui.post(() -> {
-                    if (isFinishing()) return;
+                    if (isFinishing() || isDestroyed()) return;
                     downloading = false;
                     a.uiState = null;
                     progressRow.setVisibility(View.GONE);
@@ -318,11 +334,15 @@ public class ArtifactsActivity extends Activity {
                                 "Артефакты доступны только с авторизацией.\n" + msg,
                                 () -> startDownload(a, pos));
                     } else {
-                        new AlertDialog.Builder(this)
-                                .setTitle("Не удалось скачать")
-                                .setMessage(msg + "\n\nЕсли артефакт старше 90 дней, GitHub удаляет его безвозвратно.")
-                                .setPositiveButton("ОК", null)
-                                .show();
+                        try {
+                            new AlertDialog.Builder(this)
+                                    .setTitle("Не удалось скачать / извлечь")
+                                    .setMessage(msg)
+                                    .setPositiveButton("ОК", null)
+                                    .show();
+                        } catch (Exception ignored) {
+                            toast(msg);
+                        }
                     }
                 });
             } finally {
@@ -333,31 +353,29 @@ public class ArtifactsActivity extends Activity {
     }
 
     private void resultDialog(Models.ArtifactInfo a, Util.Saved saved, final File apk) {
-        final File zip = saved.appFile;
-        String apkInfo = "";
-        if (apk != null) {
-            apkInfo = "\n\nВнутри архива найден APK: " + apk.getName()
-                    + "\nРазмер: " + Util.humanSize(apk.length())
-                    + "  ·  SHA-256: " + Util.sha256Short(apk)
-                    + "\nФайл проверен и сохранён в «Загрузки» — установить можно и оттуда."
-                    + "\n\nЕсли установщик пишет «пакет недействителен», скорее всего "
-                    + "на телефоне стоит сборка ZI Git с другой подписью или с большим "
-                    + "versionCode: удалите старое приложение и установите это.";
-        }
+        final File file = saved.appFile;
         AlertDialog.Builder d = new AlertDialog.Builder(this)
                 .setTitle("Готово: " + a.name)
-                .setMessage("Сохранено: " + saved.publicPath + apkInfo
+                .setMessage("Сохранено: " + saved.publicPath
+                        + (apk != null ? "\n\nЭто готовый APK — можно ставить сразу, распаковывать не нужно."
+                        + "\nРазмер: " + Util.humanSize(apk.length())
+                        + "  ·  SHA-256: " + Util.sha256Short(apk)
+                        + "\nКопия APK сохранена в «Загрузки» — установить можно и оттуда."
+                        + "\n\nЕсли установщик пишет «пакет недействителен», на телефоне "
+                        + "стоит сборка с другой подписью или с большим versionCode: "
+                        + "удалите старое приложение и установите это."
+                        : "\n\nAPK внутри архива не найден.")
                         + "\n\nВсе скачанные файлы: нижняя кнопка «Файлы».");
         if (apk != null) {
             d.setPositiveButton("Установить APK", (dd, w) -> installApk(apk));
-            d.setNeutralButton("Открыть архив", (dd, w) -> {
-                String err = Util.openFile(this, zip);
+            d.setNeutralButton("Открыть файл", (dd, w) -> {
+                String err = Util.openFile(this, file);
                 if (err != null) toast(err);
             });
             d.setNegativeButton("Закрыть", null);
         } else {
             d.setPositiveButton("Открыть файл", (dd, w) -> {
-                String err = Util.openFile(this, zip);
+                String err = Util.openFile(this, file);
                 if (err != null) toast(err);
             });
             d.setNegativeButton("Закрыть", null);
@@ -397,6 +415,18 @@ public class ArtifactsActivity extends Activity {
     private boolean hasStoragePermission() {
         return checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void openLogs() {
+        Intent i = new Intent(this, LogsActivity.class);
+        i.putExtra("repo", repo);
+        i.putExtra("runId", runId);
+        i.putExtra("title", runTitle);
+        String branch = getIntent().getStringExtra("branch");
+        if (branch != null) i.putExtra("branch", branch);
+        int number = getIntent().getIntExtra("number", 0);
+        i.putExtra("number", number);
+        startActivity(i);
     }
 
     private void toast(String s) {

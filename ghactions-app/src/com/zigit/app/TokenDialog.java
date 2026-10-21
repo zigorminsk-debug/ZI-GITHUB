@@ -37,9 +37,7 @@ final class TokenDialog {
                 + "• удаление репозиториев и артефактов;\n"
                 + "• лимит 5000 запросов в час вместо 60.\n\n"
                 + "Токен хранится только на этом устройстве. Создавайте его для того аккаунта, "
-                + "в котором лежат ваши проекты.\n\n"
-                + "Удаление: classic — scope delete_repo, fine-grained — "
-                + "Administration / Actions: Read and write.");
+                + "в котором лежат ваши проекты.");
         box.addView(info);
 
         final EditText input = new EditText(a);
@@ -179,16 +177,19 @@ final class TokenDialog {
                 } else {
                     sb.append("Всё в порядке: токен видит ваши репозитории.");
                 }
-                sb.append("\n\nУдаление репозиториев и артефактов: classic-токену нужен scope "
-                        + "delete_repo, fine-grained — Administration: Read and write "
-                        + "(репозитории) и Actions: Read and write (артефакты).");
+                sb.append("\n\nУдаление: classic-токену нужен scope delete_repo; "
+                        + "fine-grained — Administration: Read and write (репозитории) "
+                        + "и Actions: Read and write (артефакты).");
             } catch (Api.ApiException e) {
                 sb.append("Ошибка ").append(e.code).append(": ").append(e.getMessage());
             } catch (Exception e) {
                 sb.append("Не удалось проверить: ").append(e.getMessage());
             }
             final String report = sb.toString();
-            a.runOnUiThread(() -> cb.done(report));
+            a.runOnUiThread(() -> {
+                if (a.isFinishing()) return;
+                cb.done(report);
+            });
         }).start();
     }
 

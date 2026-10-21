@@ -48,13 +48,13 @@
         </LinearLayout>
 
         <TextView
-            android:id="@+id/refreshBtn"
+            android:id="@+id/logsBtn"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:gravity="center"
-            android:text="&#8635;"
+            android:text="&#9776;"
             android:textColor="#FFFFFF"
-            android:textSize="20sp" />
+            android:textSize="18sp" />
 
         <TextView
             android:id="@+id/menuBtn"
@@ -64,6 +64,15 @@
             android:text="&#8942;"
             android:textColor="#FFFFFF"
             android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/refreshBtn"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="&#8635;"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp" />
     </LinearLayout>
 
     <TextView
