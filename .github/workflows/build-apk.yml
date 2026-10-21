@@ -55,6 +55,40 @@ jobs:
           "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/34.0.0/aapt2" dump badging \
             ghactions-app/out/ZIGit.apk | head -5
 
+      - name: Диагностика APK
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          APK=ghactions-app/out/ZIGit.apk
+          {
+            echo "size: $(stat -c%s "$APK")"
+            echo "sha256: $(sha256sum "$APK" | cut -d' ' -f1)"
+            echo
+            echo "=== aapt2 dump badging ==="
+            "$SDK/build-tools/34.0.0/aapt2" dump badging "$APK" | head -25 || true
+            echo
+            echo "=== apksigner verify -v ==="
+            "$SDK/build-tools/34.0.0/apksigner" verify -v --print-certs "$APK" || true
+            echo
+            echo "=== unzip -l ==="
+            unzip -l "$APK" || true
+          } | tee apk-report.txt
+
+      # Выкладывает собранный APK в отдельную ветку ci-apk: оттуда файл можно
+      # скачать без авторизации в Actions (и он не попадает в основную ветку).
+      - name: Выложить APK в ветку ci-apk
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "ZI Git CI"
+          git config user.email "ci@users.noreply.github.com"
+          mkdir -p /tmp/ci-apk
+          cp ghactions-app/out/ZIGit.apk apk-report.txt /tmp/ci-apk/
+          git checkout --orphan ci-apk
+          git rm -r --cached . > /dev/null 2>&1 || true
+          cp /tmp/ci-apk/ZIGit.apk /tmp/ci-apk/apk-report.txt .
+          git add -f ZIGit.apk apk-report.txt
+          git commit -m "ci: APK из запуска ${{ github.run_id }}"
+          git push -f origin ci-apk
+
       # Именно этот шаг создаёт артефакт, который видно и можно скачать
       # в приложении. Без upload-artifact у запуска не будет ни одного артефакта.
       - name: Загрузить APK как артефакт
