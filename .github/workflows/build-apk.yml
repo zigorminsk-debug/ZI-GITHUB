@@ -1,0 +1,73 @@
+# Сборка ZI Git (APK) в GitHub Actions.
+#
+# Зачем: приложение ZI Git — загрузчик артефактов. Чтобы у репозитория появились
+# собственные сборки, нужен workflow с шагом actions/upload-artifact@v4.
+# Этот файл и есть такой workflow: он собирает APK тем же скриптом build.sh,
+# что и локально (без Gradle), и публикует результат как артефакт «ZI-Git-APK».
+#
+# Результат: Actions → запуск «Build APK» → артефакт ZI-Git-APK.zip,
+# внутри — ZIGit.apk. В приложении: удержите запуск → «Удалить артефакты запуска»
+# или откройте запуск → «Скачать». Ветку можно выбрать вручную:
+# Actions → Build APK → Run workflow → нужная ветка.
+
+name: Build APK
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:        # кнопка «Run workflow» в интерфейсе GitHub
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Сборка и подпись APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: Установить JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Установить Android SDK (build-tools 34, platform 34)
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0'
+
+      - name: Собрать и подписать APK
+        run: |
+          # setup-android выставляет ANDROID_SDK_ROOT; build.sh читает ANDROID_HOME
+          export ANDROID_HOME="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Показать результат
+        run: |
+          ls -la ghactions-app/out
+          "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/34.0.0/aapt2" dump badging \
+            ghactions-app/out/ZIGit.apk | head -5
+
+      # Именно этот шаг создаёт артефакт, который видно и можно скачать
+      # в приложении. Без upload-artifact у запуска не будет ни одного артефакта.
+      - name: Загрузить APK как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZI-Git-APK
+          path: ghactions-app/out/ZIGit.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # Дополнительно: тот же APK прикладывается к релизу, если это тег v*.
+      - name: Приложить APK к релизу (для тегов v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ghactions-app/out/ZIGit.apk

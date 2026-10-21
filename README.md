@@ -191,6 +191,36 @@ GitHub отдаёт **метаданные** артефактов публичн
   и тексты подсказок по правам токена.
 * Алгоритм поиска APK внутри zip-архива артефакта: вложенные папки (`app/release/*.apk`) обрабатываются, архив без APK корректно возвращает «не найден».
 
+## Сборка в GitHub Actions (артефакт с APK)
+
+Готовые сборки в Actions появляются только там, где в workflow есть шаг
+`actions/upload-artifact`. В этом репозитории такого workflow раньше не было (папки
+`.github/workflows` не существовало), поэтому у запусков не было ни одного артефакта.
+Теперь он есть: **`.github/workflows/build-apk.yml`**.
+
+Что делает workflow «Build APK»:
+
+1. ставит JDK 21 и Android SDK (build-tools 34, platform 34);
+2. собирает APK тем же `build.sh`, что и локально (без Gradle), и подписывает постоянным ключом;
+3. публикует результат артефактом **`ZI-Git-APK`** (внутри `ZIGit.apk`, хранится 30 дней);
+4. для тегов `v*` дополнительно прикладывает APK к релизу.
+
+Как получить сборку:
+
+* **Автоматически** — при push в `main` и при открытии pull request;
+* **Вручную** — GitHub → Actions → **Build APK** → **Run workflow** → выбрать ветку → Run.
+  Для веток, которых нет в `main`, ручной запуск доступен после того, как файл workflow
+  попал в `main` (или через pull request — он тоже запускает сборку);
+* затем в приложении ZI Git: запуск «Build APK» → «Скачать» → `ZI-Git-APK.zip` → внутри APK.
+
+Секреты не нужны: ключ подписи `keystore/zigit-release.jks` лежит в репозитории,
+пароль по умолчанию — в `build.sh` (его можно задать через `ZIGIT_KEYSTORE_PASS`).
+Если публиковать APK в Google Play или хранить ключ отдельно — перенесите keystore в secrets
+и передайте путь/пароль переменными окружения.
+
+Шаблон для своих Android-проектов (Gradle, `assembleDebug` + `upload-artifact`) —
+в `example-workflow/android-build.yml`.
+
 ## Пересборка из исходников
 
 ```bash
@@ -209,6 +239,8 @@ ZIGIT_KEYSTORE=/путь/мой.jks ZIGIT_KEYSTORE_PASS='пароль' ./build.s
 ## Структура проекта
 
 ```
+.github/workflows/build-apk.yml  # CI: сборка APK + артефакт ZI-Git-APK
+example-workflow/                # шаблон workflow для чужих Gradle-проектов
 keystore/
 ├── zigit-release.jks            # ПОСТОЯННЫЙ ключ подписи (храните копию!)
 └── README.txt                   # пароль, отпечатки, инструкции
