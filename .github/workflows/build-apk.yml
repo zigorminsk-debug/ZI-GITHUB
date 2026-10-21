@@ -6,7 +6,7 @@
 # что и локально (без Gradle), и публикует результат как артефакт «ZI-Git-APK».
 #
 # Результат: Actions → запуск «Build APK» → артефакт ZI-Git-APK.zip,
-# внутри — ZIGit.apk. В приложении: откройте запуск → «Скачать»
+# внутри — ZIGit.apk (версия 3.1, versionCode 15). В приложении: откройте запуск → «Скачать»
 # (или удержите запуск → «Удалить артефакты запуска», чтобы почистить старые сборки).
 # Ветку для ручного запуска можно выбрать: Actions → Build APK → Run workflow.
 
@@ -73,28 +73,12 @@ jobs:
             unzip -l "$APK" || true
           } | tee apk-report.txt
 
-      # Выкладывает собранный APK в отдельную ветку ci-apk: оттуда файл можно
-      # скачать без авторизации в Actions (и он не попадает в основную ветку).
-      - name: Выложить APK в ветку ci-apk
-        if: github.event_name == 'pull_request'
-        run: |
-          git config user.name "ZI Git CI"
-          git config user.email "ci@users.noreply.github.com"
-          mkdir -p /tmp/ci-apk
-          cp ghactions-app/out/ZIGit.apk apk-report.txt /tmp/ci-apk/
-          git checkout --orphan ci-apk
-          git rm -r --cached . > /dev/null 2>&1 || true
-          cp /tmp/ci-apk/ZIGit.apk /tmp/ci-apk/apk-report.txt .
-          git add -f ZIGit.apk apk-report.txt
-          git commit -m "ci: APK из запуска ${{ github.run_id }}"
-          git push -f origin ci-apk
-
       # Именно этот шаг создаёт артефакт, который видно и можно скачать
       # в приложении. Без upload-artifact у запуска не будет ни одного артефакта.
       - name: Загрузить APK как артефакт
         uses: actions/upload-artifact@v4
         with:
-          name: ZI-Git-APK
+          name: ZI-Git-APK-3.1
           path: ghactions-app/out/ZIGit.apk
           if-no-files-found: error
           retention-days: 30
