@@ -520,8 +520,18 @@ public class MainActivity extends Activity {
     }
 
     private void showAbout() {
+        String version = "3.1";
+        long code = 30;
+        try {
+            android.content.pm.PackageInfo pi = getPackageManager()
+                    .getPackageInfo(getPackageName(), 0);
+            if (pi.versionName != null) version = pi.versionName;
+            if (android.os.Build.VERSION.SDK_INT >= 28) code = pi.getLongVersionCode();
+            else code = pi.versionCode;
+        } catch (Exception ignored) {
+        }
         new AlertDialog.Builder(this)
-                .setTitle("ZI Git 3.1")
+                .setTitle("ZI Git " + version + " (" + code + ")")
                 .setMessage("Загрузчик готовых сборок из GitHub Actions.\n\n"
                         + "Разработчик: Захаревич Игорь\n"
                         + "E-mail: ziv@csl.by\n\n"

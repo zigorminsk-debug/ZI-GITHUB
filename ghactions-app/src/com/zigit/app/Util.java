@@ -278,6 +278,56 @@ final class Util {
         return null;
     }
 
+    /**
+     * Проверяет, что файл — действительно APK: zip-архив с манифестом и подписью.
+     * Нужно, чтобы вместо «пакет недействителен» от установщика показать понятную причину.
+     *
+     * @return null, если файл похож на APK, иначе текст ошибки
+     */
+    static String checkApk(File apk) {
+        if (apk == null || !apk.exists()) return "Файл APK не найден";
+        if (apk.length() < 1024) return "APK слишком мал (" + apk.length() + " Б) — вероятно, скачался не полностью";
+        boolean manifest = false, signature = false, dex = false;
+        ZipInputStream zis = null;
+        try {
+            zis = new ZipInputStream(new java.io.FileInputStream(apk));
+            ZipEntry e;
+            while ((e = zis.getNextEntry()) != null) {
+                String n = e.getName();
+                if ("AndroidManifest.xml".equals(n)) manifest = true;
+                else if ("classes.dex".equals(n)) dex = true;
+                else if (n.startsWith("META-INF/") && (n.endsWith(".RSA") || n.endsWith(".EC") || n.endsWith(".DSA"))) signature = true;
+            }
+        } catch (Exception e) {
+            return "Файл не читается как ZIP: " + e.getMessage();
+        } finally {
+            try {
+                if (zis != null) zis.close();
+            } catch (Exception ignored) {
+            }
+        }
+        if (!manifest) return "В файле нет AndroidManifest.xml — это не APK";
+        if (!dex) return "В файле нет classes.dex — сборка неполная";
+        if (!signature) return "APK без подписи (META-INF) — установщик его отклонит";
+        return null;
+    }
+
+    /** Короткий SHA-256 файла (первые 16 символов) — для проверки, что файл не побился. */
+    static String sha256Short(File f) {
+        try (InputStream in = new java.io.FileInputStream(f)) {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] buf = new byte[65536];
+            int n;
+            while ((n = in.read(buf)) > 0) md.update(buf, 0, n);
+            StringBuilder sb = new StringBuilder();
+            byte[] d = md.digest();
+            for (int i = 0; i < 8; i++) sb.append(String.format(Locale.US, "%02x", d[i]));
+            return sb.toString();
+        } catch (Exception e) {
+            return "?";
+        }
+    }
+
     /** Открыть установщик APK (нужен content:// URI, поэтому через FileProviderX). */
     static void installApk(android.app.Activity a, File apk) {
         Uri uri = FileProviderX.uriFor(a, FileProviderX.DIR_APK, apk);

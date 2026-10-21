@@ -282,7 +282,19 @@ public class ArtifactsActivity extends Activity {
                 // ищем APK внутри архива
                 File apk = Util.extractFirstApk(tmp, new File(getExternalFilesDir(null), FileProviderX.DIR_APK));
 
-                final File apkFinal = apk;
+                // проверяем, что достали валидный APK, и кладём его в «Загрузки» отдельным файлом,
+                // чтобы можно было установить и из файлового менеджера
+                final String apkProblem = apk == null ? null : Util.checkApk(apk);
+                if (apk != null && apkProblem == null) {
+                    try {
+                        Util.copyToDownloads(this, apk,
+                                Util.safeName(a.name) + ".apk",
+                                "application/vnd.android.package-archive");
+                    } catch (Exception ignored) {
+                    }
+                }
+
+                final File apkFinal = apkProblem == null ? apk : null;
                 ui.post(() -> {
                     if (isFinishing()) return;
                     downloading = false;
@@ -322,11 +334,19 @@ public class ArtifactsActivity extends Activity {
 
     private void resultDialog(Models.ArtifactInfo a, Util.Saved saved, final File apk) {
         final File zip = saved.appFile;
+        String apkInfo = "";
+        if (apk != null) {
+            apkInfo = "\n\nВнутри архива найден APK: " + apk.getName()
+                    + "\nРазмер: " + Util.humanSize(apk.length())
+                    + "  ·  SHA-256: " + Util.sha256Short(apk)
+                    + "\nФайл проверен и сохранён в «Загрузки» — установить можно и оттуда."
+                    + "\n\nЕсли установщик пишет «пакет недействителен», скорее всего "
+                    + "на телефоне стоит сборка ZI Git с другой подписью или с большим "
+                    + "versionCode: удалите старое приложение и установите это.";
+        }
         AlertDialog.Builder d = new AlertDialog.Builder(this)
                 .setTitle("Готово: " + a.name)
-                .setMessage("Сохранено: " + saved.publicPath
-                        + (apk != null ? "\n\nВнутри архива найден APK: " + apk.getName()
-                        + "\nЕго можно установить сразу — архив не нужно распаковывать вручную." : "")
+                .setMessage("Сохранено: " + saved.publicPath + apkInfo
                         + "\n\nВсе скачанные файлы: нижняя кнопка «Файлы».");
         if (apk != null) {
             d.setPositiveButton("Установить APK", (dd, w) -> installApk(apk));

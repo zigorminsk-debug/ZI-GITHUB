@@ -16,6 +16,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'          # тег v3.1 → сборка + APK прикладывается к релизу
   pull_request:
   workflow_dispatch:        # кнопка «Run workflow» в интерфейсе GitHub
 
@@ -41,6 +43,15 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: 'platforms;android-34 build-tools;34.0.0'
+
+      - name: Версия из манифеста
+        id: ver
+        run: |
+          NAME=$(grep -oP 'android:versionName="\K[^"]+' ghactions-app/AndroidManifest.xml)
+          CODE=$(grep -oP 'android:versionCode="\K[^"]+' ghactions-app/AndroidManifest.xml)
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Собираем версию $NAME (versionCode $CODE)"
 
       - name: Собрать и подписать APK
         run: |
@@ -96,7 +107,7 @@ jobs:
       - name: Загрузить APK как артефакт
         uses: actions/upload-artifact@v4
         with:
-          name: ZI-Git-APK-3.1
+          name: ZI-Git-APK-${{ steps.ver.outputs.name }}
           path: ghactions-app/out/ZIGit.apk
           if-no-files-found: error
           retention-days: 30
