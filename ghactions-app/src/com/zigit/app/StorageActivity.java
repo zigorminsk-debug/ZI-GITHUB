@@ -1,6 +1,7 @@
 package com.zigit.app;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -346,7 +347,6 @@ public class StorageActivity extends Activity {
         return (int) Math.min(100, used * 100 / limit);
     }
 
-    /** Карточка: заголовок, текст и (необязательно) полоса заполнения. */
     /** Кнопка-действие под карточками (переход к очистке хранилища). */
     private void actionButton(String text, Runnable onClick) {
         TextView btn = new TextView(this);
@@ -364,6 +364,7 @@ public class StorageActivity extends Activity {
         content.addView(btn);
     }
 
+    /** Карточка: заголовок, текст и (необязательно) полоса заполнения. */
     private void card(String title, String body, int percent) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
