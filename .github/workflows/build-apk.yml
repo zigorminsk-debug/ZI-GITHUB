@@ -112,9 +112,22 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      # Дополнительно: тот же APK прикладывается к релизу, если это тег v*.
-      - name: Приложить APK к релизу (для тегов v*)
+      # Релиз: прикладываем те же APK под привычными именами (как в 3.0) —
+      # ZI-Git.apk (его ищет автообновление) и ZI-Git-v<версия>.apk.
+      # Оба файла — чистые .apk, без zip-архивов.
+      - name: Подготовить APK для релиза (для тегов v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VER="${{ steps.ver.outputs.name }}"
+          cp ghactions-app/out/ZIGit.apk "ZI-Git-v$VER.apk"
+          cp ghactions-app/out/ZIGit.apk "ZI-Git.apk"
+          ls -la ZI-Git.apk "ZI-Git-v$VER.apk"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt2" dump badging ZI-Git.apk | head -1 || true
+
+      - name: Опубликовать APK в релизе
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: ghactions-app/out/ZIGit.apk
+          files: |
+            ZI-Git.apk
+            ZI-Git-v${{ steps.ver.outputs.name }}.apk
