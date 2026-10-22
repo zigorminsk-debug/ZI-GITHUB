@@ -651,8 +651,8 @@ public class MainActivity extends Activity {
     private static final String UPDATE_REPO = "zigorminsk-debug/ZI-GITHUB";
 
     private void showAbout() {
-        String ver = "3.3";
-        long code = 32;
+        String ver = "3.4";
+        long code = 33;
         try {
             android.content.pm.PackageInfo pi = getPackageManager()
                     .getPackageInfo(getPackageName(), 0);
@@ -669,7 +669,8 @@ public class MainActivity extends Activity {
                         + "1. Введите owner/repo (например, zigorminsk-debug/PC-Tools).\n"
                         + "2. Приложение покажет запуски Actions и артефакты к ним.\n"
                         + "3. Нажмите запуск → «Скачать» у нужного артефакта.\n"
-                        + "4. Файл сохранится в «Загрузки»; если внутри APK — установка в один тап.\n"
+                        + "4. В «Загрузки» попадёт готовый .apk (архив распаковывается сам) — "
+                        + "установка в один тап.\n"
                         + "5. Все загруженные файлы всегда под рукой: нижняя кнопка «Файлы».\n\n"
                         + "Создание и загрузка: кнопки в шапке — ➕ новый репозиторий, "
                         + "📤 загрузка файла, ✏ настройки репозитория.\n\n"
@@ -757,7 +758,7 @@ public class MainActivity extends Activity {
                 // версия «новее», если новее номер ИЛИ (при равном номере) больше versionCode;
                 // прежние сборки 2.x/3.0 с большим versionCode тоже получат обновление
                 final boolean hasUpdate = isNewer(newVer, currentVer)
-                        || (newVer.equals(currentVer) && currentCode < 31);
+                        || (newVer.equals(currentVer) && currentCode < 33);
                 final String fApkUrl = apkUrl;
                 final String fApkApiUrl = apkApiUrl;
                 final String fApkName = apkName;

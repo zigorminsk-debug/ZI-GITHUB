@@ -162,6 +162,30 @@ final class Util {
         }
     }
 
+    /** Имя готового APK в «Загрузках»: <имя артефакта>.apk, без двойных расширений. */
+    static String apkFileName(String artifactName) {
+        return withExt(artifactName, "apk");
+    }
+
+    /** Имя архива (если APK внутри не оказалось): <имя артефакта>.zip. */
+    static String archiveFileName(String artifactName) {
+        return withExt(artifactName, "zip");
+    }
+
+    /** Убирает старое расширение и ставит нужное: "app-debug.apk" -> "app-debug.zip". */
+    private static String withExt(String name, String ext) {
+        String base = name == null ? "artifact" : name.trim();
+        String lower = base.toLowerCase(Locale.US);
+        for (String e : new String[]{".apk", ".zip", ".aab", ".aar", ".jar", ".tar", ".gz", ".tgz"}) {
+            if (lower.endsWith(e)) {
+                base = base.substring(0, base.length() - e.length());
+                break;
+            }
+        }
+        if (base.isEmpty()) base = "artifact";
+        return safeName(base) + "." + ext;
+    }
+
     /** Имя файла без опасных символов. */
     static String safeName(String name) {
         String s = name == null ? "artifact" : name;

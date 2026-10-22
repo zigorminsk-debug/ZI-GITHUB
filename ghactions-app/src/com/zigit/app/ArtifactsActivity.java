@@ -287,32 +287,51 @@ public class ArtifactsActivity extends Activity {
                         progressText.setText(a.name + ": извлекаю APK…");
                     }
                 });
+                // GitHub отдаёт артефакты только zip-архивом. Достаём из него APK и сохраняем
+                // ГОТОВЫЙ .apk (архив в «Загрузки» не кладём). Если APK внутри нет — сохраняем
+                // сам архив, чтобы артефакт всё равно можно было скачать.
                 File apkBase = getExternalFilesDir(null);
                 if (apkBase == null) apkBase = getFilesDir();
                 File apkDir = new File(apkBase, FileProviderX.DIR_APK);
-                File apk = ZipExtract.apkFrom(tmp, apkDir);
 
-                // проверяем, что достали целый APK, и сохраняем его в «Загрузки» отдельным
-                // файлом: установить можно и из файлового менеджера
-                final String apkProblem = apk == null ? null : Util.checkApk(apk);
-                if (apk != null && apkProblem == null) {
-                    try {
-                        Util.copyToDownloads(this, apk, Util.safeName(a.name) + ".apk",
-                                "application/vnd.android.package-archive");
-                    } catch (Exception ignored) {
+                File extractedApk = null;
+                String problemText = null;
+                try {
+                    File extracted = ZipExtract.apkFrom(tmp, apkDir);
+                    String problem = Util.checkApk(extracted);
+                    if (problem == null) {
+                        extractedApk = extracted;
+                    } else {
+                        problemText = problem;
                     }
+                } catch (Exception noApk) {
+                    // архива с APK внутри нет — это нормально для артефактов с jar/бинарниками
+                    problemText = noApk.getMessage();
                 }
+                // final-копии: их захватывают лямбды ниже
+                final File apk = extractedApk;
+                final String apkProblem = problemText;
+
                 ui.post(() -> {
                     if (!isFinishing() && !isDestroyed()) {
-                        progressText.setText(a.name + ": сохраняю…");
+                        progressText.setText(a.name + ": сохраняю "
+                                + (apk != null ? "APK…" : "архив…"));
                     }
                 });
-                final Util.Saved saved = Util.save(this, apk, apk.getName(), "application/octet-stream");
-                // битый APK не предлагаем ставить — покажем причину
-                final File apkFinal = apkProblem == null ? apk : null;
-                if (apkProblem != null) {
-                    ui.post(() -> toast("APK повреждён: " + apkProblem));
+
+                final Util.Saved saved;
+                final File apkFinal;
+                if (apk != null) {
+                    // единственный файл в «Загрузках» — готовый APK, ставить можно сразу
+                    saved = Util.save(this, apk, Util.apkFileName(a.name),
+                            "application/vnd.android.package-archive");
+                    apkFinal = saved.appFile;
+                } else {
+                    saved = Util.save(this, tmp, Util.archiveFileName(a.name), "application/zip");
+                    apkFinal = null;
                 }
+                // почему не удалось достать APK (если не удалось)
+                final String apkNote = apk == null && apkProblem != null ? apkProblem : null;
                 ui.post(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     downloading = false;
@@ -320,7 +339,7 @@ public class ArtifactsActivity extends Activity {
                     progressRow.setVisibility(View.GONE);
                     adapter.notifyDataSetChanged();
                     try {
-                        resultDialog(a, saved, apkFinal);
+                        resultDialog(a, saved, apkFinal, apkNote);
                     } catch (Exception ignored) {
                         toast("Сохранено: " + saved.publicPath);
                     }
@@ -360,19 +379,22 @@ public class ArtifactsActivity extends Activity {
         });
     }
 
-    private void resultDialog(Models.ArtifactInfo a, Util.Saved saved, final File apk) {
+    private void resultDialog(Models.ArtifactInfo a, Util.Saved saved, final File apk,
+                              String apkNote) {
         final File file = saved.appFile;
         AlertDialog.Builder d = new AlertDialog.Builder(this)
                 .setTitle("Готово: " + a.name)
                 .setMessage("Сохранено: " + saved.publicPath
-                        + (apk != null ? "\n\nЭто готовый APK — можно ставить сразу, распаковывать не нужно."
+                        + (apk != null
+                        ? "\n\nЭто готовый APK (не архив) — можно ставить сразу."
                         + "\nРазмер: " + Util.humanSize(apk.length())
                         + "  ·  SHA-256: " + Util.sha256Short(apk)
-                        + "\nКопия APK сохранена в «Загрузки» — установить можно и оттуда."
                         + "\n\nЕсли установщик пишет «пакет недействителен», на телефоне "
                         + "стоит сборка с другой подписью или с большим versionCode: "
                         + "удалите старое приложение и установите это."
-                        : "\n\nAPK внутри архива не найден.")
+                        : "\n\nГотового APK внутри артефакта нет"
+                        + (apkNote == null || apkNote.isEmpty() ? "" : " (" + firstLine(apkNote) + ")")
+                        + ", поэтому сохранён сам архив.")
                         + "\n\nВсе скачанные файлы: нижняя кнопка «Файлы».");
         if (apk != null) {
             d.setPositiveButton("Установить APK", (dd, w) -> installApk(apk));
@@ -389,6 +411,13 @@ public class ArtifactsActivity extends Activity {
             d.setNegativeButton("Закрыть", null);
         }
         d.show();
+    }
+
+    /** Первая строка сообщения — чтобы не раздувать диалог. */
+    private static String firstLine(String text) {
+        if (text == null) return "";
+        int i = text.indexOf('\n');
+        return i < 0 ? text : text.substring(0, i);
     }
 
     private void installApk(File apk) {
