@@ -3,6 +3,7 @@ package com.zigit.app;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -42,6 +43,11 @@ public class MainActivity extends Activity {
 
     private static final int REQ_PICK_REPO = 100;
     private static final int REQ_STORAGE = 101;
+    private static final int REQ_NEW_REPO = 102;
+    private static final int REQ_EDIT_REPO = 103;
+    private static final int REQ_INSTALL_UPDATE = 104;
+
+    private File pendingUpdateApk;
 
     private final ExecutorService pool = Executors.newFixedThreadPool(3);
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -116,10 +122,71 @@ public class MainActivity extends Activity {
             startActivity(i);
         });
 
+        findViewById(R.id.uploadBtn).setOnClickListener(v -> {
+            String repo = normalizeRepo(repoInput.getText().toString());
+            if (repo == null) {
+                toast("Сначала укажите репозиторий для загрузки");
+                return;
+            }
+            if (Store.token(this).isEmpty()) {
+                TokenDialog.askForToken(this,
+                        "Для загрузки файлов нужен токен с правами на запись:\n"
+                                + "classic — scope «repo»; fine-grained — Contents: Read and write.",
+                        () -> {});
+                return;
+            }
+            Intent i = new Intent(this, UploadActivity.class);
+            i.putExtra("repo", repo);
+            startActivity(i);
+        });
+        findViewById(R.id.editRepoBtn).setOnClickListener(v -> {
+            String repo = normalizeRepo(repoInput.getText().toString());
+            if (repo == null) {
+                toast("Сначала укажите репозиторий для редактирования");
+                return;
+            }
+            if (Store.token(this).isEmpty()) {
+                TokenDialog.askForToken(this,
+                        "Для редактирования репозитория нужен токен с правами на запись:\n"
+                                + "classic — scope «repo»; fine-grained — Administration: Read and write.",
+                        () -> {});
+                return;
+            }
+            Intent i = new Intent(this, EditRepoActivity.class);
+            i.putExtra("repo", repo);
+            startActivityForResult(i, REQ_EDIT_REPO);
+        });
+        findViewById(R.id.addRepoBtn).setOnClickListener(v -> {
+            if (Store.token(this).isEmpty()) {
+                TokenDialog.askForToken(this,
+                        "Чтобы создавать репозитории, нужен токен с правами на запись:\n"
+                                + "classic — scope «repo»; fine-grained — Administration и Contents: Read and write.",
+                        () -> {});
+            } else {
+                startActivityForResult(new Intent(this, NewRepoActivity.class), REQ_NEW_REPO);
+            }
+        });
+        findViewById(R.id.refreshBtn).setOnClickListener(v -> {
+            if (currentRepo != null) find();
+            else toast("Сначала укажите репозиторий");
+        });
         findViewById(R.id.menuBtn).setOnClickListener(v -> showMenu(v));
 
         list.setOnItemClickListener((parent, view, position, id) -> {
             Models.RunItem r = shown.get(position);
+            // in_progress / queued → открываем прогресс сборки
+            if ("in_progress".equals(r.status) || "queued".equals(r.status)) {
+                Intent i = new Intent(this, LogsActivity.class);
+                i.putExtra("repo", currentRepo);
+                i.putExtra("runId", r.id);
+                i.putExtra("title", r.title());
+                i.putExtra("branch", r.headBranch);
+                i.putExtra("number", r.runNumber);
+                i.putExtra("conclusion", r.status);
+                startActivity(i);
+                return;
+            }
+            // завершённые → артефакты
             Intent i = new Intent(this, ArtifactsActivity.class);
             i.putExtra("repo", currentRepo);
             i.putExtra("runId", r.id);
@@ -128,6 +195,12 @@ public class MainActivity extends Activity {
             i.putExtra("number", r.runNumber);
             i.putExtra("created", r.createdAt);
             startActivity(i);
+        });
+
+        list.setOnItemLongClickListener((parent, view, position, id) -> {
+            Models.RunItem r = shown.get(position);
+            showRunMenu(view, r);
+            return true;
         });
 
         setupBottomNav();
@@ -147,6 +220,23 @@ public class MainActivity extends Activity {
         super.onResume();
         updateTokenBanner();
         if (tabLabels != null) highlightTab(TAB_RUNS);
+        autoCheckUpdate();
+    }
+
+    /** Тихая проверка обновлений не чаще раза в 4 часа. */
+    private void autoCheckUpdate() {
+        android.content.SharedPreferences sp = getSharedPreferences("update", 0);
+        long last = sp.getLong("last_check", 0);
+        long now = System.currentTimeMillis();
+        if (now - last < 4 * 3600 * 1000L) return; // 4 часа
+        sp.edit().putLong("last_check", now).apply();
+        checkForUpdate(true);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        pool.shutdownNow();
     }
 
     private void updateTokenBanner() {
@@ -162,10 +252,14 @@ public class MainActivity extends Activity {
         s = s.replace("https://", "").replace("http://", "");
         if (s.startsWith("github.com/")) s = s.substring("github.com/".length());
         if (s.startsWith("www.github.com/")) s = s.substring("www.github.com/".length());
+        int q = s.indexOf('?');
+        if (q >= 0) s = s.substring(0, q);
+        int h = s.indexOf('#');
+        if (h >= 0) s = s.substring(0, h);
         if (s.endsWith(".git")) s = s.substring(0, s.length() - 4);
         while (s.endsWith("/")) s = s.substring(0, s.length() - 1);
         String[] parts = s.split("/");
-        if (parts.length != 2 || parts[0].isEmpty() || parts[1].isEmpty()) return null;
+        if (parts.length < 2 || parts[0].isEmpty() || parts[1].isEmpty()) return null;
         return parts[0] + "/" + parts[1];
     }
 
@@ -369,8 +463,13 @@ public class MainActivity extends Activity {
         m.getMenu().add(0, 2, 1, onlyWithArtifacts
                 ? "Показать все запуски" : "Только запуски с артефактами");
         m.getMenu().add(0, 5, 2, "Скачанные файлы");
-        m.getMenu().add(0, 3, 3, "Токен GitHub");
-        m.getMenu().add(0, 4, 4, "О приложении и разработчике");
+        m.getMenu().add(0, 6, 3, "📖 Инструкция");
+        m.getMenu().add(0, 7, 4, "🗑 Удалить репозиторий…");
+        m.getMenu().add(0, 8, 5, "💾 Хранилище GitHub (занято/свободно)");
+        m.getMenu().add(0, 9, 6, "🧹 Очистка хранилища (артефакты и кэши)");
+        m.getMenu().add(0, 10, 7, "🧹 Очистить репозиторий, оставив 2 успешных");
+        m.getMenu().add(0, 3, 6, "Токен GitHub");
+        m.getMenu().add(0, 4, 7, "О приложении и разработчике");
         m.setOnMenuItemClickListener((MenuItem item) -> {
             switch (item.getItemId()) {
                 case 1:
@@ -390,6 +489,132 @@ public class MainActivity extends Activity {
                 case 5:
                     startActivity(new Intent(this, DownloadsActivity.class));
                     break;
+                case 6:
+                    startActivity(new Intent(this, HelpActivity.class));
+                    break;
+                case 7:
+                    deleteCurrentRepo();
+                    break;
+                case 8:
+                    openStorage();
+                    break;
+                case 9:
+                    startActivity(new Intent(this, CleanupActivity.class));
+                    break;
+                case 10: {
+                    String repo = normalizeRepo(repoInput.getText().toString());
+                    if (repo == null) {
+                        toast("Сначала укажите репозиторий");
+                        break;
+                    }
+                    CleanupActivity.openRepo(this, repo);
+                    break;
+                }
+            }
+            return true;
+        });
+        m.show();
+    }
+
+    /** Экран «Хранилище»: сколько места занято и сколько осталось. */
+    private void openStorage() {
+        Intent i = new Intent(this, StorageActivity.class);
+        String repo = normalizeRepo(repoInput.getText().toString());
+        if (repo != null) i.putExtra("repo", repo);
+        startActivity(i);
+    }
+
+    /**
+     * Удаление репозитория, который введён или открыт сейчас.
+     * GitHub требует подтверждения — приложение тоже: нужно ввести полное имя.
+     */
+    private void deleteCurrentRepo() {
+        final String repo = normalizeRepo(repoInput.getText().toString());
+        if (repo == null) {
+            toast("Сначала укажите репозиторий");
+            return;
+        }
+        GithubDelete.confirmRepo(this, repo, changed -> {
+            if (!changed || isFinishing()) return;
+            if (repo.equals(currentRepo) || repo.equals(Store.repo(this))) {
+                seq++;                      // отменяем незавершённую загрузку списка
+                currentRepo = null;
+                all.clear();
+                shown.clear();
+                adapter.notifyDataSetChanged();
+                hideProgress();
+                status.setText("");
+                repoInput.setText("");
+                Store.setRepo(this, "");
+                showEmpty("Репозиторий " + repo + " удалён с GitHub");
+            }
+        });
+    }
+
+    private void showRunMenu(View anchor, Models.RunItem r) {
+        PopupMenu m = new PopupMenu(this, anchor);
+        m.getMenu().add(0, 1, 0, "Артефакты");
+        m.getMenu().add(0, 2, 1, "Логи сборки (ошибки)");
+        m.getMenu().add(0, 3, 2, "Копировать: #" + r.runNumber);
+        m.getMenu().add(0, 4, 3, "Открыть на GitHub");
+        if (r.artifactCount() > 0) {
+            m.getMenu().add(0, 5, 4, "🗑 Удалить артефакты запуска (" + r.artifactCount() + ")");
+        }
+        m.setOnMenuItemClickListener((MenuItem item) -> {
+            switch (item.getItemId()) {
+                case 1: {
+                    Intent i = new Intent(this, ArtifactsActivity.class);
+                    i.putExtra("repo", currentRepo);
+                    i.putExtra("runId", r.id);
+                    i.putExtra("title", r.title());
+                    i.putExtra("branch", r.headBranch);
+                    i.putExtra("number", r.runNumber);
+                    i.putExtra("created", r.createdAt);
+                    startActivity(i);
+                    break;
+                }
+                case 2: {
+                    Intent i = new Intent(this, LogsActivity.class);
+                    i.putExtra("repo", currentRepo);
+                    i.putExtra("runId", r.id);
+                    i.putExtra("title", r.title());
+                    i.putExtra("branch", r.headBranch);
+                    i.putExtra("number", r.runNumber);
+                    i.putExtra("conclusion", Models.statusLabel(r.status, r.conclusion));
+                    startActivity(i);
+                    break;
+                }
+                case 3: {
+                    try {
+                        android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                                getSystemService(Context.CLIPBOARD_SERVICE);
+                        String text = "#" + r.runNumber + "  " + r.title()
+                                + "  [" + Models.statusLabel(r.status, r.conclusion) + "]"
+                                + "  " + r.headBranch;
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("run", text));
+                        toast("Скопировано: #" + r.runNumber);
+                    } catch (Exception e) {
+                        toast("Не удалось скопировать");
+                    }
+                    break;
+                }
+                case 5:
+                    GithubDelete.confirmArtifacts(this, currentRepo,
+                            new ArrayList<>(r.artifacts), changed -> {
+                                if (!changed || isFinishing()) return;
+                                reloadRunArtifacts(r);
+                            });
+                    break;
+                case 4: {
+                    try {
+                        String url = "https://github.com/" + currentRepo + "/actions/runs/" + r.id;
+                        startActivity(new Intent(Intent.ACTION_VIEW,
+                                android.net.Uri.parse(url)));
+                    } catch (Exception e) {
+                        toast("Не удалось открыть GitHub");
+                    }
+                    break;
+                }
             }
             return true;
         });
@@ -403,9 +628,40 @@ public class MainActivity extends Activity {
         });
     }
 
+    /** Обновляет артефакты одного запуска — после удаления части из них. */
+    private void reloadRunArtifacts(final Models.RunItem r) {
+        pool.execute(() -> {
+            try {
+                JSONObject o = Api.json(Api.API + "/repos/" + currentRepo
+                        + "/actions/runs/" + r.id + "/artifacts?per_page=100", Store.token(this));
+                final List<Models.ArtifactInfo> got =
+                        Models.ArtifactInfo.list(o.optJSONArray("artifacts"));
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    r.artifacts = got;
+                    r.artifactsLoaded = true;
+                    r.artifactsError = false;
+                    adapter.notifyDataSetChanged();
+                });
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    private static final String UPDATE_REPO = "zigorminsk-debug/ZI-GITHUB";
+
     private void showAbout() {
+        String ver = "3.4";
+        long code = 33;
+        try {
+            android.content.pm.PackageInfo pi = getPackageManager()
+                    .getPackageInfo(getPackageName(), 0);
+            if (pi.versionName != null) ver = pi.versionName;
+            code = android.os.Build.VERSION.SDK_INT >= 28 ? pi.getLongVersionCode() : pi.versionCode;
+        } catch (Exception ignored) {
+        }
         new AlertDialog.Builder(this)
-                .setTitle("ZI Git 2.1")
+                .setTitle("ZI Git " + ver + " (" + code + ")")
                 .setMessage("Загрузчик готовых сборок из GitHub Actions.\n\n"
                         + "Разработчик: Захаревич Игорь\n"
                         + "E-mail: ziv@csl.by\n\n"
@@ -413,13 +669,320 @@ public class MainActivity extends Activity {
                         + "1. Введите owner/repo (например, zigorminsk-debug/PC-Tools).\n"
                         + "2. Приложение покажет запуски Actions и артефакты к ним.\n"
                         + "3. Нажмите запуск → «Скачать» у нужного артефакта.\n"
-                        + "4. Файл сохранится в «Загрузки»; если внутри APK — установка в один тап.\n"
+                        + "4. В «Загрузки» попадёт готовый .apk (архив распаковывается сам) — "
+                        + "установка в один тап.\n"
                         + "5. Все загруженные файлы всегда под рукой: нижняя кнопка «Файлы».\n\n"
+                        + "Создание и загрузка: кнопки в шапке — ➕ новый репозиторий, "
+                        + "📤 загрузка файла, ✏ настройки репозитория.\n\n"
+                        + "Удаление: ⋮ → «Удалить репозиторий…», а артефакты — удержание "
+                        + "строки в списке артефактов. Нужны права: classic — delete_repo, "
+                        + "fine-grained — Administration / Actions: Read and write.\n\n"
+                        + "Хранилище: ⋮ → «Хранилище GitHub» — занято и свободно.\n\n"
+                        + "Кончилась квота («Artifact storage quota has been hit»)? "
+                        + "⋮ → «Очистка хранилища» — удаляет старые артефакты и кэши "
+                        + "по всем репозиториям.\n\n"
                         + "Артефакты GitHub хранит 90 дней, потом удаляет — приложение помечает такие как «Истёк».")
-                .setPositiveButton("Написать разработчику", (d, w) -> emailDeveloper())
-                .setNeutralButton("Копировать e-mail", (d, w) -> copyEmail())
+                .setPositiveButton("Проверить обновления", (d, w) -> checkForUpdate(false))
+                .setNeutralButton("Написать разработчику", (d, w) -> emailDeveloper())
                 .setNegativeButton("Закрыть", null)
                 .show();
+    }
+
+    // -------------------------------------------------------- обновления
+
+    /**
+     * Проверяет наличие новой версии в GitHub Releases.
+     * @param silent если true — не показывает диалог «обновлений нет»
+     */
+    private void checkForUpdate(boolean silent) {
+        final String currentVer;
+        final int currentCode;
+        try {
+            android.content.pm.PackageInfo pi = getPackageManager()
+                    .getPackageInfo(getPackageName(), 0);
+            currentVer = pi.versionName;
+            currentCode = pi.versionCode;
+        } catch (Exception e) {
+            if (!silent) toast("Не удалось определить текущую версию");
+            return;
+        }
+
+        if (!silent) toast("Проверяю обновления…");
+
+        pool.execute(() -> {
+            try {
+                JSONObject rel = Api.json(Api.API + "/repos/" + UPDATE_REPO
+                        + "/releases/latest", Store.token(this));
+                final String tag = rel.optString("tag_name", "");
+                final String name = rel.optString("name", tag);
+                final String body = rel.optString("body", "");
+                final String published = rel.optString("published_at", "");
+
+                // ищем APK-ассет
+                String apkUrl = null;
+                String apkApiUrl = null;
+                long apkSize = 0;
+                String apkName = null;
+                JSONArray assets = rel.optJSONArray("assets");
+                if (assets != null) {
+                    for (int i = 0; i < assets.length(); i++) {
+                        JSONObject a = assets.optJSONObject(i);
+                        if (a == null) continue;
+                        String n = a.optString("name", "");
+                        if (n.endsWith(".apk") && n.equals("ZI-Git.apk")) {
+                            apkUrl = a.optString("browser_download_url", "");
+                            apkApiUrl = a.optString("url", "");
+                            apkSize = a.optLong("size", 0);
+                            apkName = n;
+                            break;
+                        }
+                    }
+                    // fallback — любой APK
+                    if (apkUrl == null) {
+                        for (int i = 0; i < assets.length(); i++) {
+                            JSONObject a = assets.optJSONObject(i);
+                            if (a == null) continue;
+                            String n = a.optString("name", "");
+                            if (n.endsWith(".apk")) {
+                                apkUrl = a.optString("browser_download_url", "");
+                                apkApiUrl = a.optString("url", "");
+                                apkSize = a.optLong("size", 0);
+                                apkName = n;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                final String newVer = tag.startsWith("v") ? tag.substring(1) : tag;
+                // версия «новее», если новее номер ИЛИ (при равном номере) больше versionCode;
+                // прежние сборки 2.x/3.0 с большим versionCode тоже получат обновление
+                final boolean hasUpdate = isNewer(newVer, currentVer)
+                        || (newVer.equals(currentVer) && currentCode < 33);
+                final String fApkUrl = apkUrl;
+                final String fApkApiUrl = apkApiUrl;
+                final String fApkName = apkName;
+                final long fApkSize = apkSize;
+
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    if (hasUpdate) {
+                        showUpdateDialog(newVer, name, body, published,
+                                fApkUrl, fApkApiUrl, fApkName, fApkSize);
+                    } else if (!silent) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("Обновлений нет")
+                                .setMessage("Установлена версия " + currentVer + " (" + currentCode + ")"
+                                        + "\nПоследний релиз на GitHub: " + newVer
+                                        + "\n\nОбновление предлагается, когда в релизе версия "
+                                        + "новее или (при той же версии) больше versionCode.")
+                                .setPositiveButton("ОК", null)
+                                .show();
+                    }
+                });
+            } catch (Exception e) {
+                final String msg = e.getMessage();
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    if (!silent) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("Не удалось проверить")
+                                .setMessage(msg)
+                                .setPositiveButton("ОК", null)
+                                .show();
+                    }
+                });
+            }
+        });
+    }
+
+    /** Простое сравнение версий: 2.6 > 2.5, 2.10 > 2.9, 3.0 > 2.99. */
+    /**
+     * True, если в релизе версия новее установленной.
+     * Сравниваем и номер версии, и versionCode: у нас номера сборки идут с запасом
+     * (3.1 = code 30), поэтому одного versionName недостаточно.
+     */
+    private boolean isNewerVersion(String remote, String local) {
+        String r = remote == null ? "" : remote.trim().replaceFirst("^[vV]", "");
+        String l = local == null ? "" : local.trim().replaceFirst("^[vV]", "");
+        return isNewer(r, l);
+    }
+
+    private boolean isNewer(String remote, String local) {
+        if (remote == null || remote.isEmpty()) return false;
+        try {
+            String[] r = remote.split("\\.");
+            String[] l = local.split("\\.");
+            int max = Math.max(r.length, l.length);
+            for (int i = 0; i < max; i++) {
+                int rv = i < r.length ? Integer.parseInt(r[i].replaceAll("[^0-9]", "")) : 0;
+                int lv = i < l.length ? Integer.parseInt(l[i].replaceAll("[^0-9]", "")) : 0;
+                if (rv > lv) return true;
+                if (rv < lv) return false;
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
+    private void showUpdateDialog(String newVer, String name, String body,
+                                  String published, String apkUrl, String apkApiUrl,
+                                  String apkName, long apkSize) {
+        String currentVer = "?";
+        try {
+            currentVer = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception ignored) {
+        }
+
+        StringBuilder msg = new StringBuilder();
+        msg.append("Доступна новая версия: ").append(newVer)
+                .append("\nУстановлена: ").append(currentVer);
+        if (apkSize > 0) msg.append("\nРазмер: ").append(Util.humanSize(apkSize));
+        if (published != null && !published.isEmpty())
+            msg.append("\nОпубликовано: ").append(Util.dateTime(published));
+        if (body != null && !body.isEmpty()) {
+            String trimmed = body.length() > 300 ? body.substring(0, 300) + "…" : body;
+            msg.append("\n\n").append(trimmed);
+        }
+
+        final String fv = currentVer;
+        new AlertDialog.Builder(this)
+                .setTitle("Обновление: " + newVer)
+                .setMessage(msg.toString())
+                .setPositiveButton("Скачать и установить", (d, w) ->
+                        downloadAndUpdate(apkUrl, apkApiUrl, apkName, apkSize, newVer))
+                .setNegativeButton("Позже", null)
+                .setNeutralButton("На GitHub", (d, w) -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://github.com/"
+                                        + UPDATE_REPO + "/releases/latest")));
+                    } catch (Exception e) {
+                        toast("Нет браузера");
+                    }
+                })
+                .show();
+    }
+
+    private void downloadAndUpdate(String url, String apiUrl, String name, long size, String newVer) {
+        if ((url == null || url.isEmpty()) && (apiUrl == null || apiUrl.isEmpty())) {
+            toast("Ссылка на APK не найдена в релизе");
+            return;
+        }
+        showProgress("Скачиваю обновление " + newVer + "…");
+
+        pool.execute(() -> {
+            final File apkDir = new File(getExternalFilesDir(null), FileProviderX.DIR_APK);
+            if (!apkDir.exists()) //noinspection ResultOfMethodCallIgnored
+                apkDir.mkdirs();
+            final File tmp = new File(getCacheDir(), "update.apk");
+            final File dest = new File(apkDir, "ZI-Git-update.apk");
+            try {
+                // Пробуем browser_download_url (без токена)
+                if (url != null && !url.isEmpty()) {
+                    try {
+                        Api.download(url, null, tmp,
+                                "application/octet-stream, */*",
+                                updateProgress(newVer));
+                    } catch (Exception browserEx) {
+                        // Если browser_download_url не работает — пробуем API URL
+                        if (apiUrl != null && !apiUrl.isEmpty()) {
+                            Api.download(apiUrl, Store.token(this), tmp,
+                                    "application/octet-stream",
+                                    updateProgress(newVer));
+                        } else {
+                            throw browserEx;
+                        }
+                    }
+                } else {
+                    // Только API URL
+                    Api.download(apiUrl, Store.token(this), tmp,
+                            "application/octet-stream",
+                            updateProgress(newVer));
+                }
+
+                // копируем в apk/
+                try (java.io.InputStream in = new java.io.FileInputStream(tmp);
+                     java.io.OutputStream os = new java.io.FileOutputStream(dest)) {
+                    byte[] buf = new byte[65536];
+                    int n;
+                    while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+                }
+
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    hideProgress();
+                    installUpdateApk(dest);
+                });
+            } catch (Exception e) {
+                final String msg = e.getMessage();
+                final String fallbackUrl = url;
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    hideProgress();
+                    new AlertDialog.Builder(this)
+                            .setTitle("Не удалось скачать")
+                            .setMessage(msg + "\n\nМожно скачать APK вручную через браузер:")
+                            .setPositiveButton("Открыть в браузере", (d, w) -> {
+                                try {
+                                    startActivity(new Intent(Intent.ACTION_VIEW,
+                                            android.net.Uri.parse(fallbackUrl)));
+                                } catch (Exception ex) {
+                                    toast("Нет браузера");
+                                }
+                            })
+                            .setNeutralButton("Скопировать ссылку", (d, w) -> {
+                                try {
+                                    android.content.ClipboardManager cm =
+                                            (android.content.ClipboardManager)
+                                                    getSystemService(Context.CLIPBOARD_SERVICE);
+                                    cm.setPrimaryClip(android.content.ClipData
+                                            .newPlainText("apk", fallbackUrl));
+                                    toast("Ссылка скопирована");
+                                } catch (Exception ex) {
+                                    toast(fallbackUrl);
+                                }
+                            })
+                            .setNegativeButton("Закрыть", null)
+                            .show();
+                });
+            } finally {
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
+            }
+        });
+    }
+
+    private Api.Progress updateProgress(String newVer) {
+        return (done, total) -> ui.post(() -> {
+            if (isFinishing()) return;
+            int pct = total > 0 ? (int) (done * 100 / total) : 0;
+            String t = (total > 0 ? pct + "%  " : "")
+                    + Util.humanSize(done)
+                    + (total > 0 ? " / " + Util.humanSize(total) : "");
+            status.setText("Скачиваю обновление " + newVer + ": " + t);
+        });
+    }
+
+    private void installUpdateApk(File apk) {
+        if (Build.VERSION.SDK_INT >= 26
+                && !getPackageManager().canRequestPackageInstalls()) {
+            pendingUpdateApk = apk;
+            try {
+                startActivityForResult(new Intent(
+                        android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        android.net.Uri.parse("package:" + getPackageName())),
+                        REQ_INSTALL_UPDATE);
+            } catch (Exception e) {
+                toast("Разрешите установку из этого источника в настройках");
+            }
+            return;
+        }
+        try {
+            Util.installApk(this, apk);
+        } catch (Exception e) {
+            toast("Не удалось запустить установщик: " + e.getMessage());
+        }
     }
 
     // ------------------------------------------------------------ навигация
@@ -543,6 +1106,29 @@ public class MainActivity extends Activity {
                 find();
             }
         }
+        if (req == REQ_NEW_REPO && res == RESULT_OK && data != null) {
+            String repo = data.getStringExtra(NewRepoActivity.EXTRA_REPO);
+            if (repo != null) {
+                repoInput.setText(repo);
+                find();
+            }
+        }
+        if (req == REQ_EDIT_REPO && res == RESULT_OK && data != null) {
+            String repo = data.getStringExtra("repo");
+            if (repo != null) {
+                repoInput.setText(repo);
+                find();
+            }
+        }
+        if (req == REQ_INSTALL_UPDATE && pendingUpdateApk != null) {
+            File f = pendingUpdateApk;
+            pendingUpdateApk = null;
+            if (getPackageManager().canRequestPackageInstalls()) {
+                installUpdateApk(f);
+            } else {
+                toast("Разрешение на установку не выдано");
+            }
+        }
     }
 
     // --------------------------------------------------------------- адаптер
@@ -578,6 +1164,8 @@ public class MainActivity extends Activity {
             title.setText(r.title());
 
             String label = Models.statusLabel(r.status, r.conclusion);
+            if ("in_progress".equals(r.status)) label = "⏳ " + label;
+            if ("queued".equals(r.status)) label = "⏸ " + label;
             badge.setText(label);
             android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
             bg.setCornerRadius(Util.dp(MainActivity.this, 10));
@@ -594,7 +1182,9 @@ public class MainActivity extends Activity {
             sb.append("  ·  ").append(Util.timeAgo(r.createdAt));
             sub.setText(sb.toString());
 
-            if (r.artifactsLoaded) {
+            if ("in_progress".equals(r.status) || "queued".equals(r.status)) {
+                extra.setText("▶ Сборка идёт — нажмите для просмотра прогресса");
+            } else if (r.artifactsLoaded) {
                 if (r.artifactCount() > 0) {
                     long bytes = 0;
                     for (Models.ArtifactInfo a : r.artifacts) bytes += a.size;

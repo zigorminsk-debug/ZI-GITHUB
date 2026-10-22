@@ -1,0 +1,133 @@
+# Сборка ZI Git (APK) в GitHub Actions.
+#
+# Зачем: приложение ZI Git — загрузчик артефактов. Чтобы у репозитория появились
+# собственные сборки, нужен workflow с шагом actions/upload-artifact@v4.
+# Этот файл и есть такой workflow: он собирает APK тем же скриптом build.sh,
+# что и локально (без Gradle), и публикует результат как артефакт «ZI-Git-APK».
+#
+# Результат: Actions → запуск «Build APK» → артефакт ZI-Git-APK.zip,
+# внутри — ZIGit.apk (версия 3.1, versionCode 15). В приложении: откройте запуск → «Скачать»
+# (или удержите запуск → «Удалить артефакты запуска», чтобы почистить старые сборки).
+# Ветку для ручного запуска можно выбрать: Actions → Build APK → Run workflow.
+
+name: Build APK
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'          # тег v3.1 → сборка + APK прикладывается к релизу
+  pull_request:
+  workflow_dispatch:        # кнопка «Run workflow» в интерфейсе GitHub
+
+permissions:
+  contents: write      # нужно только для шага с релизом (теги v*)
+
+jobs:
+  build:
+    name: Сборка и подпись APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v5
+
+      - name: Установить JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Установить Android SDK (build-tools 34, platform 34)
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0'
+
+      - name: Версия из манифеста
+        id: ver
+        run: |
+          NAME=$(grep -oP 'android:versionName="\K[^"]+' ghactions-app/AndroidManifest.xml)
+          CODE=$(grep -oP 'android:versionCode="\K[^"]+' ghactions-app/AndroidManifest.xml)
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Собираем версию $NAME (versionCode $CODE)"
+
+      - name: Собрать и подписать APK
+        run: |
+          # setup-android выставляет ANDROID_SDK_ROOT; build.sh читает ANDROID_HOME
+          export ANDROID_HOME="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          chmod +x build.sh
+          set -o pipefail
+          ./build.sh 2>&1 | tee build-log.txt
+
+      # Если сборка упала — лог выкладывается в ветку ci-log, чтобы причину
+      # можно было прочитать без доступа к хранилищу артефактов GitHub.
+      - name: Выложить лог ошибки в ветку ci-log
+        if: failure() && github.event_name == 'pull_request'
+        run: |
+          mkdir -p /tmp/diag
+          cp -t /tmp/diag build-log.txt ghactions-app/build/javac.log 2>/dev/null || true
+          cd /tmp/diag
+          git init -q
+          git checkout -q -b ci-log
+          git add -A
+          git -c user.name="ZI Git CI" -c user.email="ci@users.noreply.github.com" \
+            commit -qm "лог сборки ${GITHUB_RUN_ID}"
+          git push -f \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            ci-log
+
+      - name: Показать результат
+        run: |
+          ls -la ghactions-app/out
+          "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/34.0.0/aapt2" dump badging \
+            ghactions-app/out/ZIGit.apk | head -5
+
+      - name: Диагностика APK
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          APK=ghactions-app/out/ZIGit.apk
+          {
+            echo "size: $(stat -c%s "$APK")"
+            echo "sha256: $(sha256sum "$APK" | cut -d' ' -f1)"
+            echo
+            echo "=== aapt2 dump badging ==="
+            "$SDK/build-tools/34.0.0/aapt2" dump badging "$APK" | head -25 || true
+            echo
+            echo "=== apksigner verify -v ==="
+            "$SDK/build-tools/34.0.0/apksigner" verify -v --print-certs "$APK" || true
+            echo
+            echo "=== unzip -l ==="
+            unzip -l "$APK" || true
+          } | tee apk-report.txt
+
+      # Именно этот шаг создаёт артефакт, который видно и можно скачать
+      # в приложении. Без upload-artifact у запуска не будет ни одного артефакта.
+      - name: Загрузить APK как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZI-Git-APK-${{ steps.ver.outputs.name }}
+          path: ghactions-app/out/ZIGit.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # Релиз: прикладываем те же APK под привычными именами (как в 3.0) —
+      # ZI-Git.apk (его ищет автообновление) и ZI-Git-v<версия>.apk.
+      # Оба файла — чистые .apk, без zip-архивов.
+      - name: Подготовить APK для релиза (для тегов v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VER="${{ steps.ver.outputs.name }}"
+          cp ghactions-app/out/ZIGit.apk "ZI-Git-v$VER.apk"
+          cp ghactions-app/out/ZIGit.apk "ZI-Git.apk"
+          ls -la ZI-Git.apk "ZI-Git-v$VER.apk"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt2" dump badging ZI-Git.apk | head -1 || true
+
+      - name: Опубликовать APK в релизе
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ZI-Git.apk
+            ZI-Git-v${{ steps.ver.outputs.name }}.apk

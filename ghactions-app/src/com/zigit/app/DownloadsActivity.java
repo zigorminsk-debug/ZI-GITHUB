@@ -59,14 +59,18 @@ public class DownloadsActivity extends Activity {
 
     private void load() {
         items.clear();
-        File dir = Util.appDownloadDir(this);
-        File[] files = dir.listFiles();
-        if (files != null) {
-            List<File> list = new ArrayList<>(Arrays.asList(files));
-            list.removeIf(f -> !f.isFile());
-            list.sort(Comparator.comparingLong(File::lastModified).reversed());
-            items.addAll(list);
+        List<File> list = new ArrayList<>();
+        addFiles(list, Util.appDownloadDir(this));
+        File apkDir = getExternalFilesDir(null);
+        if (apkDir != null) addFiles(list, new File(apkDir, FileProviderX.DIR_APK));
+        java.util.Map<String, File> uniq = new java.util.LinkedHashMap<>();
+        for (File f : list) {
+            File prev = uniq.get(f.getName());
+            if (prev == null || f.lastModified() > prev.lastModified()) uniq.put(f.getName(), f);
         }
+        list = new ArrayList<>(uniq.values());
+        list.sort(Comparator.comparingLong(File::lastModified).reversed());
+        items.addAll(list);
         adapter.notifyDataSetChanged();
         titleView.setText(getString(R.string.downloads_title) + " (" + items.size() + ")");
         if (items.isEmpty()) {
@@ -76,6 +80,15 @@ public class DownloadsActivity extends Activity {
             empty.setVisibility(View.VISIBLE);
         } else {
             empty.setVisibility(View.GONE);
+        }
+    }
+
+    private void addFiles(List<File> out, File dir) {
+        if (dir == null) return;
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isFile()) out.add(f);
         }
     }
 
