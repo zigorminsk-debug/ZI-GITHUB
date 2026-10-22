@@ -325,7 +325,11 @@ public class ArtifactsActivity extends Activity {
                     // единственный файл в «Загрузках» — готовый APK, ставить можно сразу
                     saved = Util.save(this, apk, Util.apkFileName(a.name),
                             "application/vnd.android.package-archive");
+                    // дальше работаем с копией в каталоге приложения, а распакованный
+                    // дубликат убираем — в «Файлах» не должно быть двух одинаковых APK
                     apkFinal = saved.appFile;
+                    //noinspection ResultOfMethodCallIgnored
+                    apk.delete();
                 } else {
                     saved = Util.save(this, tmp, Util.archiveFileName(a.name), "application/zip");
                     apkFinal = null;
