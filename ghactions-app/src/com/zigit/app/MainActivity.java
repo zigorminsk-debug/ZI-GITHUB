@@ -42,6 +42,7 @@ public class MainActivity extends Activity {
 
     private static final int REQ_PICK_REPO = 100;
     private static final int REQ_STORAGE = 101;
+    private static final int REQ_NEW_REPO = 102;
 
     private final ExecutorService pool = Executors.newFixedThreadPool(3);
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -369,8 +370,9 @@ public class MainActivity extends Activity {
         m.getMenu().add(0, 2, 1, onlyWithArtifacts
                 ? "Показать все запуски" : "Только запуски с артефактами");
         m.getMenu().add(0, 5, 2, "Скачанные файлы");
-        m.getMenu().add(0, 3, 3, "Токен GitHub");
-        m.getMenu().add(0, 4, 4, "О приложении и разработчике");
+        m.getMenu().add(0, 6, 3, "Новый репозиторий");
+        m.getMenu().add(0, 3, 4, "Токен GitHub");
+        m.getMenu().add(0, 4, 5, "О приложении и разработчике");
         m.setOnMenuItemClickListener((MenuItem item) -> {
             switch (item.getItemId()) {
                 case 1:
@@ -390,10 +392,25 @@ public class MainActivity extends Activity {
                 case 5:
                     startActivity(new Intent(this, DownloadsActivity.class));
                     break;
+                case 6:
+                    newRepo();
+                    break;
             }
             return true;
         });
         m.show();
+    }
+
+    /** Создание нового репозитория на GitHub (нужен токен с правами на запись). */
+    private void newRepo() {
+        if (Store.token(this).isEmpty()) {
+            TokenDialog.askForToken(this,
+                    "Чтобы создать репозиторий, нужен токен GitHub с правами на запись "
+                            + "(classic — scope «repo»; fine-grained — Administration и Contents: Read and write).",
+                    this::newRepo);
+            return;
+        }
+        startActivityForResult(new Intent(this, NewRepoActivity.class), REQ_NEW_REPO);
     }
 
     private void showTokenDialog() {
@@ -405,7 +422,7 @@ public class MainActivity extends Activity {
 
     private void showAbout() {
         new AlertDialog.Builder(this)
-                .setTitle("ZI Git 2.1")
+                .setTitle("ZI Git 2.2")
                 .setMessage("Загрузчик готовых сборок из GitHub Actions.\n\n"
                         + "Разработчик: Захаревич Игорь\n"
                         + "E-mail: ziv@csl.by\n\n"
@@ -414,7 +431,9 @@ public class MainActivity extends Activity {
                         + "2. Приложение покажет запуски Actions и артефакты к ним.\n"
                         + "3. Нажмите запуск → «Скачать» у нужного артефакта.\n"
                         + "4. Файл сохранится в «Загрузки»; если внутри APK — установка в один тап.\n"
-                        + "5. Все загруженные файлы всегда под рукой: нижняя кнопка «Файлы».\n\n"
+                        + "5. Все загруженные файлы всегда под рукой: нижняя кнопка «Файлы».\n"
+                        + "6. Создать новый репозиторий можно из меню ⋮ → «Новый репозиторий» "
+                        + "или кнопкой «+» на экране «Мои репо» (токену нужны права на запись).\n\n"
                         + "Артефакты GitHub хранит 90 дней, потом удаляет — приложение помечает такие как «Истёк».")
                 .setPositiveButton("Написать разработчику", (d, w) -> emailDeveloper())
                 .setNeutralButton("Копировать e-mail", (d, w) -> copyEmail())
@@ -536,11 +555,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
-        if (req == REQ_PICK_REPO && res == RESULT_OK && data != null) {
+        if ((req == REQ_PICK_REPO || req == REQ_NEW_REPO) && res == RESULT_OK && data != null) {
             String repo = data.getStringExtra("repo");
-            if (repo != null) {
+            if (repo != null && !repo.isEmpty()) {
                 repoInput.setText(repo);
                 find();
+                if (req == REQ_NEW_REPO) Toast.makeText(this, "Репозиторий создан: " + repo,
+                        Toast.LENGTH_SHORT).show();
             }
         }
     }

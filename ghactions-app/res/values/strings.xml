@@ -18,4 +18,6 @@
     <string name="empty_runs">Введите owner/repo и нажмите «Найти»,\nчтобы увидеть запуски GitHub Actions</string>
     <string name="empty_artifacts">У этого запуска нет артефактов</string>
     <string name="loading">Загрузка…</string>
+    <string name="new_repo_title">Новый репозиторий</string>
+    <string name="new_repo">+ Новый репозиторий</string>
 </resources>

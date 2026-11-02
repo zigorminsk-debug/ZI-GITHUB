@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
@@ -25,10 +26,17 @@ final class Api {
 
     static class ApiException extends Exception {
         final int code;
+        /** Сырое тело ответа GitHub — нужно, чтобы разобрать ошибки создания репозитория (422 и т. п.). */
+        final String body;
 
         ApiException(int code, String msg) {
+            this(code, msg, null);
+        }
+
+        ApiException(int code, String msg, String body) {
             super(msg);
             this.code = code;
+            this.body = body;
         }
     }
 
@@ -89,7 +97,7 @@ final class Api {
             if (e.getKey() != null) h.put(e.getKey(), e.getValue());
         }
         c.disconnect();
-        if (code >= 400) throw new ApiException(code, message(body, code));
+        if (code >= 400) throw new ApiException(code, message(body, code), body);
         return new Response(code, body, h);
     }
 
@@ -112,7 +120,7 @@ final class Api {
         int code = c.getResponseCode();
         String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
         c.disconnect();
-        if (code >= 400) throw new ApiException(code, message(body, code));
+        if (code >= 400) throw new ApiException(code, message(body, code), body);
         return body;
     }
 
@@ -122,6 +130,64 @@ final class Api {
 
     static JSONArray array(String url, String token) throws Exception {
         return new JSONArray(request(url, token));
+    }
+
+    /** POST с JSON-телом (создание репозитория и другие пишущие запросы). */
+    static Response post(String url, String token, String jsonBody) throws Exception {
+        HttpURLConnection c = open(url, token);
+        c.setRequestMethod("POST");
+        c.setDoOutput(true);
+        c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+        byte[] payload = (jsonBody == null || jsonBody.isEmpty() ? "{}" : jsonBody).getBytes("UTF-8");
+        c.setFixedLengthStreamingMode(payload.length);
+        try {
+            OutputStream os = c.getOutputStream();
+            try {
+                os.write(payload);
+            } finally {
+                os.close();
+            }
+        } catch (IOException e) {
+            c.disconnect();
+            throw new IOException("Не удалось отправить запрос: " + e.getMessage());
+        }
+        int code = c.getResponseCode();
+        String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
+        Map<String, List<String>> h = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (Map.Entry<String, List<String>> e : c.getHeaderFields().entrySet()) {
+            if (e.getKey() != null) h.put(e.getKey(), e.getValue());
+        }
+        c.disconnect();
+        if (code >= 400) throw new ApiException(code, message(body, code), body);
+        return new Response(code, body, h);
+    }
+
+    /** Текст всех сообщений об ошибках из тела ответа GitHub (поле errors). */
+    static String errors(String body) {
+        if (body == null || body.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        try {
+            JSONObject o = new JSONObject(body);
+            JSONArray arr = o.optJSONArray("errors");
+            if (arr != null) {
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject e = arr.optJSONObject(i);
+                    if (e == null) continue;
+                    String msg = e.optString("message", "");
+                    String fld = e.optString("field", "");
+                    String code = e.optString("code", "");
+                    if (!fld.isEmpty()) sb.append(fld).append(": ");
+                    if (!msg.isEmpty()) sb.append(msg).append(" ");
+                    else if (!code.isEmpty()) sb.append(code).append(" ");
+                }
+            }
+            if (sb.length() == 0) {
+                String msg = o.optString("message", "");
+                if (!msg.isEmpty()) sb.append(msg);
+            }
+        } catch (Exception ignored) {
+        }
+        return sb.toString().trim();
     }
 
     static String message(String body, int code) {
@@ -177,7 +243,7 @@ final class Api {
         if (code >= 400) {
             String body = readAll(c.getErrorStream());
             c.disconnect();
-            throw new ApiException(code, message(body, code));
+            throw new ApiException(code, message(body, code), body);
         }
         long total = c.getContentLengthLong();
         InputStream in = c.getInputStream();

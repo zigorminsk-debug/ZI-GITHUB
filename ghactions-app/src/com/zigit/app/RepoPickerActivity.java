@@ -34,6 +34,7 @@ import java.util.concurrent.Executors;
 public class RepoPickerActivity extends Activity {
 
     private static final int MAX_PAGES = 10;
+    private static final int REQ_NEW_REPO = 201;
 
     private final ExecutorService pool = Executors.newFixedThreadPool(2);
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -77,6 +78,7 @@ public class RepoPickerActivity extends Activity {
 
         findViewById(R.id.backBtn).setOnClickListener(v -> finish());
         findViewById(R.id.searchBtn).setOnClickListener(v -> searchDialog());
+        findViewById(R.id.newRepoBtn).setOnClickListener(v -> newRepo());
 
         list.setOnItemClickListener((parent, view, position, id) -> {
             Intent data = new Intent();
@@ -228,6 +230,39 @@ public class RepoPickerActivity extends Activity {
             } catch (Exception ignored) {
             }
         });
+    }
+
+    /** Открывает экран создания репозитория (нужен токен с правами на запись). */
+    private void newRepo() {
+        if (Store.token(this).isEmpty()) {
+            TokenDialog.askForToken(this,
+                    "Чтобы создать репозиторий, нужен токен GitHub с правами на запись "
+                            + "(classic — scope «repo»; fine-grained — Administration и Contents: Read and write).",
+                    this::loadMyRepos);
+            return;
+        }
+        startActivityForResult(new Intent(this, NewRepoActivity.class), REQ_NEW_REPO);
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req != REQ_NEW_REPO || res != RESULT_OK || data == null) return;
+        String repo = data.getStringExtra(NewRepoActivity.EXTRA_REPO);
+        if (repo == null || repo.isEmpty()) return;
+        boolean open = data.getBooleanExtra(NewRepoActivity.EXTRA_OPEN, false);
+        if (open) {
+            // «К запускам»: возвращаем репозиторий на главный экран
+            Intent back = new Intent();
+            back.putExtra("repo", repo);
+            setResult(RESULT_OK, back);
+            finish();
+            return;
+        }
+        toast("Создан репозиторий: " + repo);
+        items.clear();
+        adapter.notifyDataSetChanged();
+        loadMyRepos();
     }
 
     private void searchDialog() {
