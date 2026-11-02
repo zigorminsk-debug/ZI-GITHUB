@@ -2,8 +2,10 @@
 # Сборка APK без Gradle: aapt2 -> javac -> d8 -> zipalign -> apksigner
 set -euo pipefail
 
-export ANDROID_HOME=/opt/android-sdk
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+# Пути можно переопределить окружением — так сборка работает и на CI,
+# где JDK ставит actions/setup-java, а Android SDK лежит в другом каталоге.
+export ANDROID_HOME="${ANDROID_HOME:-/opt/android-sdk}"
+export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}"
 BT="$ANDROID_HOME/build-tools/34.0.0"
 PLATFORM="$ANDROID_HOME/platforms/android-34/android.jar"
 
@@ -71,9 +73,17 @@ if [ ! -f "$KS" ]; then
     -storepass "$KS_PASS" -keypass "$KEY_PASS" -alias "$KEY_ALIAS" \
     -dname "CN=ZI Git, O=ZI, C=BY" -keyalg RSA -keysize 4096 -validity 10950
 fi
+# Схемы подписи заданы явно: v1 (JAR) нужен части установщиков и старым Android,
+# v2/v3 — обязательны для Android 11+. APK не должен меняться после подписи.
 "$BT/apksigner" sign \
   --ks "$KS" --ks-pass "pass:$KS_PASS" --key-pass "pass:$KEY_PASS" --ks-key-alias "$KEY_ALIAS" \
+  --min-sdk-version 26 \
+  --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
   --out "$OUT/ZIGit.apk" "$BUILD/app-aligned.apk"
 "$BT/apksigner" verify --print-certs "$OUT/ZIGit.apk" | grep -E "DN|SHA-256|SHA-1" | head -3
-"$BT/apksigner" verify -v "$OUT/ZIGit.apk" | grep -E "Verified using|Verifies"
+if ! "$BT/apksigner" verify --min-sdk-version 26 -v "$OUT/ZIGit.apk"; then
+  echo "!!! APK не прошёл проверку подписи"
+  exit 1
+fi
+echo "sha256: $(sha256sum "$OUT/ZIGit.apk" | cut -d' ' -f1)"
 ls -la "$OUT/ZIGit.apk"

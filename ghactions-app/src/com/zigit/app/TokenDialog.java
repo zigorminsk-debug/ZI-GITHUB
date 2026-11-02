@@ -34,6 +34,8 @@ final class TokenDialog {
         info.setText("Зачем токен:\n"
                 + "• GitHub отдаёт артефакты сборок только авторизованным запросам;\n"
                 + "• доступ к приватным репозиториям;\n"
+                + "• удаление репозиториев и артефактов;\n"
+                + "• создание репозиториев (нужны права на запись);\n"
                 + "• лимит 5000 запросов в час вместо 60.\n\n"
                 + "Токен хранится только на этом устройстве. Создавайте его для того аккаунта, "
                 + "в котором лежат ваши проекты.");
@@ -67,6 +69,20 @@ final class TokenDialog {
         });
         box.addView(check);
 
+        Button writePerms = new Button(a);
+        writePerms.setText("Права на запись: что включить (создание репозитория)");
+        writePerms.setOnClickListener(v -> {
+            boolean fine = TokenInfo.isFineGrained(input.getText().toString().trim());
+            new AlertDialog.Builder(a)
+                    .setTitle("Права токена на запись")
+                    .setMessage(TokenInfo.writePermsText(fine, "", null, ""))
+                    .setPositiveButton(fine ? "Настроить токен" : "Открыть токены",
+                            (d, w) -> open(a, fine ? TokenInfo.URL_FINE_TOKENS : TokenInfo.URL_CLASSIC_TOKENS))
+                    .setNegativeButton("Закрыть", null)
+                    .show();
+        });
+        box.addView(writePerms);
+
         Button settings = new Button(a);
         settings.setText("Настроить доступ существующего токена");
         settings.setOnClickListener(v ->
@@ -79,9 +95,10 @@ final class TokenDialog {
         box.addView(fineGrained);
 
         Button classic = new Button(a);
-        classic.setText("Создать classic токен (repo + workflow)");
+        classic.setText("Создать classic токен (repo + workflow + delete_repo)");
         classic.setOnClickListener(v ->
-                open(a, "https://github.com/settings/tokens/new?scopes=repo,workflow&description=Actions%20Loader"));
+                open(a, "https://github.com/settings/tokens/new?scopes=repo,workflow,delete_repo"
+                        + "&description=ZI%20Git"));
         box.addView(classic);
 
         new AlertDialog.Builder(a)
@@ -175,13 +192,19 @@ final class TokenDialog {
                 } else {
                     sb.append("Всё в порядке: токен видит ваши репозитории.");
                 }
+                sb.append("\n\nУдаление: classic-токену нужен scope delete_repo; "
+                        + "fine-grained — Administration: Read and write (репозитории) "
+                        + "и Actions: Read and write (артефакты).");
             } catch (Api.ApiException e) {
                 sb.append("Ошибка ").append(e.code).append(": ").append(e.getMessage());
             } catch (Exception e) {
                 sb.append("Не удалось проверить: ").append(e.getMessage());
             }
             final String report = sb.toString();
-            a.runOnUiThread(() -> cb.done(report));
+            a.runOnUiThread(() -> {
+                if (a.isFinishing()) return;
+                cb.done(report);
+            });
         }).start();
     }
 
