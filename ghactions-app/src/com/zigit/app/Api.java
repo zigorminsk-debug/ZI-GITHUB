@@ -26,10 +26,17 @@ final class Api {
 
     static class ApiException extends Exception {
         final int code;
+        /** Сырое тело ответа GitHub — нужно для разбора ошибок (422 «имя занято» и т. п.). */
+        final String body;
 
         ApiException(int code, String msg) {
+            this(code, msg, null);
+        }
+
+        ApiException(int code, String msg, String body) {
             super(msg);
             this.code = code;
+            this.body = body;
         }
     }
 
@@ -87,7 +94,7 @@ final class Api {
         String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
         Map<String, List<String>> h = headers(c);
         c.disconnect();
-        if (code >= 400) throw new ApiException(code, message(body, code));
+        if (code >= 400) throw new ApiException(code, message(body, code), body);
         return new Response(code, body, h);
     }
 
@@ -102,7 +109,7 @@ final class Api {
             int code = c.getResponseCode();
             String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
             Map<String, List<String>> h = headers(c);
-            if (code >= 400) throw new ApiException(code, message(body, code));
+            if (code >= 400) throw new ApiException(code, message(body, code), body);
             return new Response(code, body, h);
         } finally {
             c.disconnect();
@@ -141,7 +148,7 @@ final class Api {
         String resp = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
         Map<String, List<String>> h = headers(c);
         c.disconnect();
-        if (code >= 400) throw new ApiException(code, message(resp, code));
+        if (code >= 400) throw new ApiException(code, message(resp, code), resp);
         return new Response(code, resp, h);
     }
 
@@ -164,7 +171,7 @@ final class Api {
         int code = c.getResponseCode();
         String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
         c.disconnect();
-        if (code >= 400) throw new ApiException(code, message(body, code));
+        if (code >= 400) throw new ApiException(code, message(body, code), body);
         return body;
     }
 
@@ -174,6 +181,30 @@ final class Api {
 
     static JSONArray array(String url, String token) throws Exception {
         return new JSONArray(request(url, token));
+    }
+
+    /** Текст всех сообщений об ошибках из поля errors тела ответа GitHub. */
+    static String errors(String body) {
+        if (body == null || body.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        try {
+            JSONObject o = new JSONObject(body);
+            JSONArray arr = o.optJSONArray("errors");
+            if (arr != null) {
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject e = arr.optJSONObject(i);
+                    if (e == null) continue;
+                    String msg = e.optString("message", "");
+                    String fld = e.optString("field", "");
+                    String code = e.optString("code", "");
+                    if (!fld.isEmpty()) sb.append(fld).append(": ");
+                    if (!msg.isEmpty()) sb.append(msg).append(" ");
+                    else if (!code.isEmpty()) sb.append(code).append(" ");
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return sb.toString().trim();
     }
 
     static String message(String body, int code) {
@@ -249,7 +280,7 @@ final class Api {
         if (c == null) throw new IOException("Не удалось открыть соединение");
         String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
         c.disconnect();
-        if (code >= 400) throw new ApiException(code, message(body, code));
+        if (code >= 400) throw new ApiException(code, message(body, code), body);
         return body;
     }
 
@@ -305,7 +336,7 @@ final class Api {
         if (code >= 400) {
             String body = readAll(c.getErrorStream());
             c.disconnect();
-            throw new ApiException(code, message(body, code));
+            throw new ApiException(code, message(body, code), body);
         }
         long total = c.getContentLengthLong();
         InputStream in = c.getInputStream();

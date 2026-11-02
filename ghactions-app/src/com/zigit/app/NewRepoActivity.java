@@ -1,6 +1,7 @@
 package com.zigit.app;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -257,25 +258,84 @@ public class NewRepoActivity extends Activity {
             } catch (Exception e) {
                 final String msg = e.getMessage();
                 final int code = e instanceof Api.ApiException ? ((Api.ApiException) e).code : 0;
+                final String raw = e instanceof Api.ApiException ? ((Api.ApiException) e).body : null;
                 ui.post(() -> {
                     if (isFinishing()) return;
                     setBusy(false);
                     status.setText("");
-                    if (code == 401 || code == 403) {
-                        TokenDialog.askForToken(this,
-                                "GitHub не дал прав на создание репозитория:\n" + msg + "\n\n"
-                                        + "Нужны права на запись: у classic-токена — scope «repo»; "
-                                        + "у fine-grained — Administration и Contents: Read and write.",
-                                () -> loadOwners());
+                    if (code == 401 || code == 403 || code == 404) {
+                        explainFailure(code, msg, raw, owner, name);
                     } else if (code == 422) {
-                        setHint("GitHub отклонил запрос:\n" + msg + "\n\n"
-                                + "Чаще всего имя уже занято на аккаунте — измените его.");
+                        String extra = Api.errors(raw);
+                        String low = (msg + " " + extra).toLowerCase(java.util.Locale.US);
+                        setHint("GitHub отклонил запрос:\n" + msg
+                                + (extra.isEmpty() ? "" : " — " + extra) + "\n\n"
+                                + (low.contains("already exists")
+                                ? "Репозиторий с таким именем уже есть на этом аккаунте — выберите другое имя."
+                                : "Имя должно состоять из латинских букв, цифр, «.», «_», «-» "
+                                + "и не заканчиваться на .git."));
                     } else {
                         toast("Ошибка: " + msg);
                     }
                 });
             }
         });
+    }
+
+    /**
+     * Точная причина отказа: GitHub не пишет, какого права не хватает, поэтому
+     * объясняем по типу токена и по его скоупам (у classic они в заголовке X-OAuth-Scopes).
+     */
+    private void explainFailure(final int code, final String msg, final String raw,
+                                final String owner, final String name) {
+        final String token = Store.token(this);
+        if (TokenInfo.isFineGrained(token)) {
+            showFailureDialog(code, msg, raw, owner, name, "");
+            return;
+        }
+        // classic: дочитываем скоупы, чтобы сказать «нужен repo» или «дело не в repo»
+        pool.execute(() -> {
+            String sc = "";
+            try {
+                sc = Api.get(Api.API + "/user", token).header("X-OAuth-Scopes");
+            } catch (Exception ignored) {
+            }
+            final String fsc = sc == null ? "" : sc;
+            ui.post(() -> {
+                if (isFinishing()) return;
+                showFailureDialog(code, msg, raw, owner, name, fsc);
+            });
+        });
+    }
+
+    private void showFailureDialog(int code, String msg, String raw, String owner, String name,
+                                   String scopes) {
+        final String token = Store.token(this);
+        final boolean fine = TokenInfo.isFineGrained(token);
+        final String login = owners.isEmpty() ? "" : owners.get(0);
+        String text = TokenInfo.createFailureText(code, msg, raw, fine, login, scopes, owner, name);
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle("Нужен токен GitHub")
+                .setMessage(text)
+                .setPositiveButton("Ввести токен", (d, w) -> TokenDialog.show(this, this::loadOwners))
+                .setNegativeButton("Позже", null);
+        b.setNeutralButton(fine ? "Как выдать права" : "Открыть токены", (d, w) -> {
+            if (fine) {
+                openUrl(TokenInfo.URL_FINE_TOKENS);
+            } else {
+                openUrl(TokenInfo.hasScope(scopes, "repo")
+                        ? TokenInfo.URL_CLASSIC_TOKENS : TokenInfo.URL_NEW_CLASSIC);
+            }
+        });
+        b.show();
+    }
+
+    private void openUrl(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception e) {
+            toast("Нет браузера");
+        }
     }
 
     /** Проверка имени по правилам GitHub: буквы, цифры, -, _ и точка. */

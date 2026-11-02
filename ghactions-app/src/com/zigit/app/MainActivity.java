@@ -651,8 +651,8 @@ public class MainActivity extends Activity {
     private static final String UPDATE_REPO = "zigorminsk-debug/ZI-GITHUB";
 
     private void showAbout() {
-        String ver = "3.4";
-        long code = 33;
+        String ver = "3.5";
+        long code = 34;
         try {
             android.content.pm.PackageInfo pi = getPackageManager()
                     .getPackageInfo(getPackageName(), 0);
