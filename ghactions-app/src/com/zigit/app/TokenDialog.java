@@ -34,8 +34,8 @@ final class TokenDialog {
         info.setText("Зачем токен:\n"
                 + "• GitHub отдаёт артефакты сборок только авторизованным запросам;\n"
                 + "• доступ к приватным репозиториям;\n"
-                + "• лимит 5000 запросов в час вместо 60;\n"
-                + "• создание репозиториев (нужны права на запись).\n\n"
+                + "• удаление репозиториев и артефактов;\n"
+                + "• лимит 5000 запросов в час вместо 60.\n\n"
                 + "Токен хранится только на этом устройстве. Создавайте его для того аккаунта, "
                 + "в котором лежат ваши проекты.");
         box.addView(info);
@@ -79,24 +79,11 @@ final class TokenDialog {
         fineGrained.setOnClickListener(v -> open(a, "https://github.com/settings/personal-access-tokens/new"));
         box.addView(fineGrained);
 
-        Button writePerms = new Button(a);
-        writePerms.setText("Права на запись: как включить (создание репозитория)");
-        writePerms.setOnClickListener(v -> new AlertDialog.Builder(a)
-                .setTitle("Права токена на запись")
-                .setMessage(TokenInfo.writePermsText(
-                        TokenInfo.isFineGrained(input.getText().toString().trim()), "", null, ""))
-                .setPositiveButton(TokenInfo.isFineGrained(input.getText().toString().trim())
-                        ? "Настроить токен" : "Открыть токены", (d, w) -> open(a,
-                        TokenInfo.isFineGrained(input.getText().toString().trim())
-                                ? TokenInfo.URL_FINE_TOKENS : TokenInfo.URL_CLASSIC_TOKENS))
-                .setNegativeButton("Закрыть", null)
-                .show());
-        box.addView(writePerms);
-
         Button classic = new Button(a);
-        classic.setText("Создать classic токен (repo + workflow)");
+        classic.setText("Создать classic токен (repo + workflow + delete_repo)");
         classic.setOnClickListener(v ->
-                open(a, "https://github.com/settings/tokens/new?scopes=repo,workflow&description=Actions%20Loader"));
+                open(a, "https://github.com/settings/tokens/new?scopes=repo,workflow,delete_repo"
+                        + "&description=ZI%20Git"));
         box.addView(classic);
 
         new AlertDialog.Builder(a)
@@ -178,10 +165,6 @@ final class TokenDialog {
                             + "(обязательно), Actions: Read-only (для артефактов), Contents: Read-only "
                             + "(для ZIP исходников и релизов);\n"
                             + "  3) Save. Значение токена при этом не меняется.\n\n"
-                            + "Для создания репозитория из приложения добавьте права на запись: "
-                            + "Administration: Read and write (создание) и Contents: Read and write "
-                            + "(первый коммит). Без них GitHub ответит "
-                            + "«Resource not accessible by personal access token».\n\n"
                             + "Альтернатива: создать classic токен с галочкой repo — он сразу видит все ваши "
                             + "приватные репозитории.\n\n"
                             + "Токен принадлежит аккаунту «").append(login).append("».");
@@ -194,13 +177,19 @@ final class TokenDialog {
                 } else {
                     sb.append("Всё в порядке: токен видит ваши репозитории.");
                 }
+                sb.append("\n\nУдаление: classic-токену нужен scope delete_repo; "
+                        + "fine-grained — Administration: Read and write (репозитории) "
+                        + "и Actions: Read and write (артефакты).");
             } catch (Api.ApiException e) {
                 sb.append("Ошибка ").append(e.code).append(": ").append(e.getMessage());
             } catch (Exception e) {
                 sb.append("Не удалось проверить: ").append(e.getMessage());
             }
             final String report = sb.toString();
-            a.runOnUiThread(() -> cb.done(report));
+            a.runOnUiThread(() -> {
+                if (a.isFinishing()) return;
+                cb.done(report);
+            });
         }).start();
     }
 

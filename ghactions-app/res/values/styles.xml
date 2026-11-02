@@ -43,13 +43,6 @@
         <item name="android:singleLine">true</item>
     </style>
 
-    <style name="Label">
-        <item name="android:textSize">11sp</item>
-        <item name="android:textColor">@color/muted</item>
-        <item name="android:textStyle">bold</item>
-        <item name="android:letterSpacing">0.06</item>
-    </style>
-
     <style name="HeaderTitle">
         <item name="android:textColor">#FFFFFF</item>
         <item name="android:textSize">17sp</item>

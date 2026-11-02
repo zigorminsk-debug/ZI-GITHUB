@@ -3,10 +3,11 @@
 # Запускать один раз после старта новой сессии: ./setup-android-sdk.sh
 set -euo pipefail
 
-SDK=/opt/android-sdk
+SDK="${ANDROID_HOME:-/opt/android-sdk}"
 BT=34.0.0
 PLATFORM=android-34
-JDK=/usr/lib/jvm/java-21-openjdk-amd64
+# На CI JDK уже установлен (actions/setup-java) и его путь лежит в JAVA_HOME.
+JDK="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}"
 
 if [ ! -x "$JDK/bin/javac" ]; then
   echo "==> Устанавливаю JDK 21"
