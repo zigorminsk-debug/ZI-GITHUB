@@ -2,8 +2,9 @@
 # Сборка APK без Gradle: aapt2 -> javac -> d8 -> zipalign -> apksigner
 set -euo pipefail
 
-export ANDROID_HOME=/opt/android-sdk
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/opt/android-sdk}}"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}"
 BT="$ANDROID_HOME/build-tools/34.0.0"
 PLATFORM="$ANDROID_HOME/platforms/android-34/android.jar"
 

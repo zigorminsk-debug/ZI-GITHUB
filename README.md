@@ -2,14 +2,18 @@
 
 Android-приложение: находишь репозиторий → видишь запуски **GitHub Actions** → скачиваешь **готовые артефакты сборки** (APK, ZIP, бинарники) прямо в «Загрузки» и ставишь APK в один тап.
 
-**Файл для установки:** `ZI-Git-v2.1.apk` (Android 8.0+, 90 КБ)
-Копия в проекте: `ghactions-app/out/ZIGit.apk`
+**APK в корне:** `ZI-Git-v2.1.apk` — предыдущая сборка (Android 8.0+, 90 КБ). Версия 2.2 собирается GitHub Actions при push или вручную через `workflow_dispatch`; готовый `ZIGit.apk` скачивается из раздела **Actions → Build Android APK → Artifacts**. Локальная сборка: `./build.sh` → `ghactions-app/out/ZIGit.apk`.
 
 **Разработчик:** Захаревич Игорь · ziv@csl.by (указан в шапке приложения — тап открывает письмо, и в разделе «О программе»)
 
 Подпись: **постоянный release-ключ ZI Git** (RSA 4096, SHA384withRSA, действует до 2056 года).
 Ключ лежит в `keystore/zigit-release.jks`, пароль и отпечатки — в `keystore/README.txt`.
 Обновления, подписанные этим ключом, ставятся поверх без удаления приложения.
+
+### Что нового в 2.2
+
+* **Очистка хранилища GitHub Actions**: просмотр размера артефактов и кэшей, удаление старых/истёкших артефактов, очистка кэшей и сохранение артефактов последних успешных запусков. После операции приложение заново запрашивает данные у GitHub и показывает, сколько осталось.
+* Для удаления GitHub требует права записи: fine-grained токен — `Actions: Read and write`; classic токен — scope `repo`. Удаление подтверждается перед отправкой.
 
 ### Что нового в 2.1
 
@@ -62,7 +66,7 @@ Android-приложение: находишь репозиторий → вид
 * **Fine-grained токен.** GitHub → Settings → Developer settings → Fine-grained tokens → ваш токен:
   1. **Resource owner** = ваш личный аккаунт (или организация);
   2. **Repository access** → «All repositories» (либо «Only select repositories» и выбрать все нужные);
-  3. **Permissions → Repository permissions**: `Metadata: Read-only` (**обязательно**), `Actions: Read-only` (для запусков и артефактов), `Contents: Read-only` (для ZIP исходников и релизов);
+  3. **Permissions → Repository permissions**: `Metadata: Read-only` (**обязательно**), `Actions: Read-only` (списки и скачивание) либо `Actions: Read and write` (также для очистки артефактов и кэшей), `Contents: Read-only` (для ZIP исходников и релизов);
   4. Save. Значение токена при этом не меняется — в приложении достаточно нажать «Обновить».
 
 ## Другие причины, почему список короткий
@@ -93,6 +97,7 @@ GitHub отдаёт по токену **только те репозитории
 | **Мои репозитории** | Список своих репозиториев по токену + поиск по всем репозиториям GitHub |
 | **ZIP исходников** | Скачивание исходников репозитория (zipball) в «Загрузки» |
 | **Скачанные файлы** | Всё, что загружено из GitHub: открыть, установить APK, поделиться, удалить |
+| **Очистка хранилища** | Удаление артефактов и Actions-кэшей непосредственно в GitHub; для записи нужен `Actions: Read and write` (fine-grained) или `repo` (classic) |
 | **Токен GitHub** | Ввод/очистка токена, проверка «что видит токен», кнопки создания токена |
 
 Навигация: нижняя панель **Запуски · Релизы · Мои репо · Файлы**; на внутренних экранах — кнопка «‹» назад.
@@ -174,11 +179,12 @@ keystore/
 setup-android-sdk.sh             # установка окружения для сборки
 build.sh                         # сборка + подпись
 ghactions-app/
-├── AndroidManifest.xml          # 4 экрана, FileProvider для установки APK
+├── AndroidManifest.xml          # экраны приложения, FileProvider для установки APK
 ├── res/                         # layouts, drawables, values, иконки (PNG + adaptive)
 ├── src/com/zigit/app/
 │   ├── MainActivity.java        # поиск репозитория, запуски Actions, артефакты к ним
 │   ├── ArtifactsActivity.java   # артефакты запуска + скачивание + установка APK
+│   ├── StorageCleanupActivity.java # очистка артефактов и кэшей GitHub Actions
 │   ├── ReleasesActivity.java    # файлы релизов (работает без токена)
 │   ├── RepoPickerActivity.java  # мои репозитории / поиск
 │   ├── Api.java                 # GitHub REST API, редиректы, прогресс

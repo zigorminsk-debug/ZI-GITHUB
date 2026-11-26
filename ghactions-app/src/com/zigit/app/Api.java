@@ -93,6 +93,19 @@ final class Api {
         return new Response(code, body, h);
     }
 
+    /** Выполняет DELETE-запрос (GitHub обычно отвечает 204 без тела). */
+    static void delete(String url, String token) throws Exception {
+        HttpURLConnection c = open(url, token);
+        try {
+            c.setRequestMethod("DELETE");
+            int code = c.getResponseCode();
+            String body = code >= 400 ? readAll(c.getErrorStream()) : "";
+            if (code >= 400) throw new ApiException(code, message(body, code));
+        } finally {
+            c.disconnect();
+        }
+    }
+
     /** Ссылка на следующую страницу из заголовка Link (или null). */
     static String nextPage(Response r) {
         String link = r.header("Link");

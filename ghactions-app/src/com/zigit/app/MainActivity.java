@@ -369,8 +369,9 @@ public class MainActivity extends Activity {
         m.getMenu().add(0, 2, 1, onlyWithArtifacts
                 ? "Показать все запуски" : "Только запуски с артефактами");
         m.getMenu().add(0, 5, 2, "Скачанные файлы");
-        m.getMenu().add(0, 3, 3, "Токен GitHub");
-        m.getMenu().add(0, 4, 4, "О приложении и разработчике");
+        m.getMenu().add(0, 6, 3, "Очистка хранилища");
+        m.getMenu().add(0, 3, 4, "Токен GitHub");
+        m.getMenu().add(0, 4, 5, "О приложении и разработчике");
         m.setOnMenuItemClickListener((MenuItem item) -> {
             switch (item.getItemId()) {
                 case 1:
@@ -390,6 +391,18 @@ public class MainActivity extends Activity {
                 case 5:
                     startActivity(new Intent(this, DownloadsActivity.class));
                     break;
+                case 6: {
+                    String repo = normalizeRepo(repoInput.getText().toString());
+                    if (repo == null) repo = currentRepo;
+                    if (repo == null) {
+                        toast("Сначала укажите репозиторий");
+                    } else {
+                        Intent i = new Intent(this, StorageCleanupActivity.class);
+                        i.putExtra("repo", repo);
+                        startActivity(i);
+                    }
+                    break;
+                }
             }
             return true;
         });
@@ -405,7 +418,7 @@ public class MainActivity extends Activity {
 
     private void showAbout() {
         new AlertDialog.Builder(this)
-                .setTitle("ZI Git 2.1")
+                .setTitle("ZI Git 2.2")
                 .setMessage("Загрузчик готовых сборок из GitHub Actions.\n\n"
                         + "Разработчик: Захаревич Игорь\n"
                         + "E-mail: ziv@csl.by\n\n"
@@ -414,8 +427,10 @@ public class MainActivity extends Activity {
                         + "2. Приложение покажет запуски Actions и артефакты к ним.\n"
                         + "3. Нажмите запуск → «Скачать» у нужного артефакта.\n"
                         + "4. Файл сохранится в «Загрузки»; если внутри APK — установка в один тап.\n"
-                        + "5. Все загруженные файлы всегда под рукой: нижняя кнопка «Файлы».\n\n"
-                        + "Артефакты GitHub хранит 90 дней, потом удаляет — приложение помечает такие как «Истёк».")
+                        + "5. Все загруженные файлы всегда под рукой: нижняя кнопка «Файлы».\n"
+                        + "6. Старые сборки и кэши можно удалить: меню ⋮ → «Очистка хранилища».\n\n"
+                        + "Для очистки fine-grained токену нужно право Actions: Read and write; classic-токену — scope repo.\n"
+                        + "Артефакты GitHub хранит ограниченное время, потом удаляет — приложение помечает такие как «Истёк».")
                 .setPositiveButton("Написать разработчику", (d, w) -> emailDeveloper())
                 .setNeutralButton("Копировать e-mail", (d, w) -> copyEmail())
                 .setNegativeButton("Закрыть", null)

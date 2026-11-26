@@ -34,6 +34,8 @@ final class TokenDialog {
         info.setText("Зачем токен:\n"
                 + "• GitHub отдаёт артефакты сборок только авторизованным запросам;\n"
                 + "• доступ к приватным репозиториям;\n"
+                + "• для очистки артефактов и кэшей нужны права на запись: fine-grained — Actions: Read and write, "
+                + "classic — scope repo;\n"
                 + "• лимит 5000 запросов в час вместо 60.\n\n"
                 + "Токен хранится только на этом устройстве. Создавайте его для того аккаунта, "
                 + "в котором лежат ваши проекты.");
@@ -160,7 +162,8 @@ final class TokenDialog {
                             + "Fine-grained tokens → ваш токен →\n"
                             + "  1) Repository access → «All repositories» (или выбрать нужные вручную);\n"
                             + "  2) Permissions → Repository permissions → Metadata: Read-only "
-                            + "(обязательно), Actions: Read-only (для артефактов), Contents: Read-only "
+                            + "(обязательно), Actions: Read-only (списки и скачивание) или Read and write "
+                            + "(дополнительно для очистки хранилища), Contents: Read-only "
                             + "(для ZIP исходников и релизов);\n"
                             + "  3) Save. Значение токена при этом не меняется.\n\n"
                             + "Альтернатива: создать classic токен с галочкой repo — он сразу видит все ваши "

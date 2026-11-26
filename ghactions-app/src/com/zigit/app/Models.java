@@ -68,6 +68,7 @@ final class Models {
         boolean expired;
         int downloadCount;
         String url = "";
+        long workflowRunId;
 
         /** Временное состояние загрузки (текст в строке списка). */
         String uiState;
@@ -88,6 +89,8 @@ final class Models {
                 a.expired = o.optBoolean("expired", false);
                 a.downloadCount = o.optInt("download_count", 0);
                 a.url = o.optString("url", "");
+                JSONObject run = o.optJSONObject("workflow_run");
+                if (run != null) a.workflowRunId = run.optLong("id", 0);
                 out.add(a);
             }
             return out;
